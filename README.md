@@ -3,7 +3,7 @@
 A gaming-oriented desktop browser built on **Electron 45** (Chromium), focused on
 a fully customizable interface. The browser UI is in German.
 
-## Features (v0.8.0)
+## Features (v0.8.1)
 
 **Tabs & navigation**
 - Vertical tabs in the sidebar (resizable by dragging)
@@ -137,6 +137,7 @@ Chromium restarts them when needed.
 | Print | `Ctrl+P` |
 | Zoom in / out / reset | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
 | Resources & processes | `Shift+Esc` |
+| Copy page link | `Ctrl+Shift+C` |
 | DevTools | `F12`, `Ctrl+Shift+I` |
 
 Hotkeys can be changed in `settings.json` as arrays of accelerators such as

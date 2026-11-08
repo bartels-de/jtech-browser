@@ -507,3 +507,36 @@ body.theme-light .res-proc__btn.is-confirm {
   opacity: 0.6;
   cursor: progress;
 }
+
+/* ---------------------------------------------------------- Kurzmeldung */
+
+/* Sitzt unten in der Tab-Seitenleiste: der Inhaltsbereich wird von der
+   Webseite (eigene View über der Oberfläche) verdeckt. */
+.toast {
+  position: fixed;
+  left: 12px;
+  bottom: 96px;
+  z-index: 50;
+  box-sizing: border-box;
+  width: calc(var(--sidebar-width, 252px) - 24px);
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--stroke-strong));
+  border-radius: var(--radius-sm);
+  background: var(--glass-strong);
+  backdrop-filter: blur(var(--blur)) saturate(var(--saturation));
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--saturation));
+  box-shadow: var(--shadow-soft);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  pointer-events: none;
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: none;
+}

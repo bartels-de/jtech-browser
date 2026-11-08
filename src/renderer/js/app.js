@@ -1508,7 +1508,8 @@ const DEFAULT_HOTKEYS = {
   zoomOut: ['Ctrl+-', 'Ctrl+NumpadSubtract'],
   zoomReset: ['Ctrl+0'],
   devTools: ['F12', 'Ctrl+Shift+I'],
-  taskManager: ['Shift+Escape']
+  taskManager: ['Shift+Escape'],
+  copyUrl: ['Ctrl+Shift+C']
 };
 
 const HOTKEY_ACTIONS = [
@@ -1534,6 +1535,7 @@ const HOTKEY_ACTIONS = [
   ['fullscreen', 'Vollbild'],
   ['print', 'Drucken'],
   ['taskManager', 'Ressourcen & Prozesse'],
+  ['copyUrl', 'Link der Seite kopieren'],
   ['devTools', 'Entwicklertools']
 ];
 
@@ -3575,6 +3577,18 @@ const updateEls = {
   hint: document.getElementById('update-hint')
 };
 
+/** Technische Updater-Fehler in verständliche Meldungen übersetzen. */
+function describeUpdateError(message = '') {
+  if (/404|Unable to find latest version|No published versions|latest\.yml/i.test(message)) {
+    return 'Kein veröffentlichtes Release gefunden';
+  }
+  if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|ECONNRESET|ERR_INTERNET|ERR_NAME_NOT_RESOLVED|ERR_NETWORK|net::/i.test(message)) {
+    return 'Keine Verbindung zu GitHub';
+  }
+  if (/sha512|checksum|signature/i.test(message)) return 'Download beschädigt, wird erneut versucht';
+  return 'Prüfung fehlgeschlagen';
+}
+
 function describeUpdate(status) {
   if (!status.supported) return 'Nur in der installierten Version';
   switch (status.state) {
@@ -3582,7 +3596,7 @@ function describeUpdate(status) {
     case 'downloading': return `Lade Version ${status.version || ''} … ${status.percent || 0} %`.replace('  ', ' ');
     case 'ready': return `Version ${status.version} bereit`;
     case 'none': return 'Aktuell';
-    case 'error': return 'Prüfung fehlgeschlagen';
+    case 'error': return describeUpdateError(status.message);
     default: return 'Noch nicht geprüft';
   }
 }
@@ -3598,10 +3612,36 @@ function renderUpdateStatus(status) {
   updateEls.pillLabel.textContent = ready ? `Update ${status.version} bereit` : 'Update bereit';
   updateEls.install.hidden = !ready;
   updateEls.check.disabled = !status.supported || status.state === 'checking' || status.state === 'downloading';
-  updateEls.hint.textContent = status.supported
-    ? 'Updates werden im Hintergrund geladen und beim nächsten Beenden installiert.'
-    : 'Im Entwicklungsmodus (npm start) gibt es keine Updates.';
+  if (!status.supported) {
+    updateEls.hint.textContent = 'Im Entwicklungsmodus (npm start) gibt es keine Updates.';
+  } else if (status.state === 'error' && status.message) {
+    updateEls.hint.textContent = `Details: ${status.message.split('\n')[0].slice(0, 160)}`;
+  } else {
+    updateEls.hint.textContent = 'Updates werden im Hintergrund geladen und beim nächsten Beenden installiert.';
+  }
 }
+
+/* ------------------------------------------------------------ Kurzmeldung */
+
+let toastTimer = null;
+
+function showToast(text) {
+  let toast = document.getElementById('jtech-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'jtech-toast';
+    toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    document.body.appendChild(toast);
+  }
+  toast.textContent = String(text || '');
+  toast.classList.add('is-visible');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 1800);
+}
+
+api.onToast?.(showToast);
 
 async function installUpdate() {
   updateEls.pill.disabled = true;

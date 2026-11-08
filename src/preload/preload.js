@@ -126,6 +126,12 @@ contextBridge.exposeInMainWorld('jtech', {
     return () => ipcRenderer.removeListener('ui:task-manager', listener);
   },
 
+  onToast: (callback) => {
+    const listener = (_event, text) => callback(text);
+    ipcRenderer.on('ui:toast', listener);
+    return () => ipcRenderer.removeListener('ui:toast', listener);
+  },
+
   onUpdateStatus: (callback) => {
     const listener = (_event, status) => callback(status);
     ipcRenderer.on('update:status', listener);
