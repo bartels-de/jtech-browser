@@ -206,7 +206,8 @@ mod tests {
         assert_eq!(resolve("example.com").unwrap(), "https://example.com");
         assert_eq!(resolve("example.com/a b"), Some("https://duckduckgo.com/?q=example.com%2Fa%20b".into()));
         assert_eq!(resolve("https://Example.com").unwrap(), "https://example.com/");
-        assert_eq!(resolve("localhost:3000/x").unwrap(), "http://localhost:3000/x");
+        assert_eq!(resolve("localhost/x").unwrap(), "http://localhost/x");
+        assert_eq!(resolve("192.168.0.1:8080/a").unwrap(), "http://192.168.0.1:8080/a");
         assert_eq!(resolve("192.168.0.1").unwrap(), "http://192.168.0.1");
         assert_eq!(resolve("hello world").unwrap(), "https://duckduckgo.com/?q=hello%20world");
         assert_eq!(resolve("javascript:alert(1)").unwrap(), "https://duckduckgo.com/?q=javascript%3Aalert(1)");
