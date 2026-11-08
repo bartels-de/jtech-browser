@@ -110,6 +110,8 @@ pub struct Browser {
     pub webview_hidden: bool,
     pub maximized: bool,
     pub fullscreen: bool,
+    /// The UI asked to focus the page while it was hidden; done once shown.
+    pub pending_content_focus: bool,
     /// URLs of recently closed tabs (newest last, max 25) for "reopen tab".
     pub closed_history: Vec<String>,
 }
@@ -269,6 +271,7 @@ pub fn apply_layout(app: &AppHandle) {
         (labels, visible)
     });
 
+    let mut shown = None;
     for label in labels {
         let Some(webview) = app.get_webview(&label) else {
             continue;
@@ -277,9 +280,14 @@ pub fn apply_layout(app: &AppHandle) {
             let _ = webview.set_position(position);
             let _ = webview.set_size(size);
             let _ = webview.show();
+            shown = Some(webview.clone());
         } else {
             let _ = webview.hide();
         }
+    }
+    let focus = shown.is_some() && with_browser(app, |b| std::mem::take(&mut b.pending_content_focus));
+    if let (true, Some(webview)) = (focus, shown) {
+        let _ = webview.set_focus();
     }
 }
 
@@ -538,7 +546,7 @@ pub fn activate(app: &AppHandle, id: &str) {
     }
     apply_layout(app);
     if let Some(webview) = webview_for(app, id) {
-        if !overlay_open(app) {
+        if !content_hidden(app) {
             let _ = webview.set_focus();
         }
     }
@@ -803,7 +811,7 @@ pub fn navigate_active(app: &AppHandle, url: Url) -> Result<bool, String> {
         Some(false) => {
             if let Some(webview) = webview_for(app, &id) {
                 webview.navigate(url).map_err(|e| e.to_string())?;
-                let _ = webview.set_focus();
+                focus_content(app);
             }
         }
     }
@@ -946,18 +954,48 @@ pub fn set_dock(app: &AppHandle, width: f64) {
     apply_layout(app);
 }
 
-pub fn set_overlay(app: &AppHandle, open: bool) {
-    with_browser(app, |b| b.overlay = open);
-    apply_layout(app);
-    if open {
-        if let Some(chrome) = app.get_webview(CHROME_LABEL) {
-            let _ = chrome.set_focus();
+/// Moves keyboard focus to the chrome UI. Called before a tab webview is
+/// hidden: a hidden window keeps the Win32 keyboard focus, so keys typed
+/// into the UI (e.g. the settings) would otherwise go to the invisible page.
+fn focus_chrome(app: &AppHandle) {
+    if let Some(chrome) = app.get_webview(CHROME_LABEL) {
+        let _ = chrome.set_focus();
+    }
+}
+
+/// Focuses the active page, or remembers the request while the page is
+/// hidden (never give focus to an invisible webview).
+pub fn focus_content(app: &AppHandle) {
+    let hidden = with_browser(app, |b| {
+        let hidden = b.overlay || b.webview_hidden;
+        b.pending_content_focus = hidden;
+        hidden
+    });
+    if !hidden {
+        if let Some(webview) = active_webview(app) {
+            let _ = webview.set_focus();
         }
     }
 }
 
+/// True while the tab webviews are hidden behind an overlay or by the UI.
+pub fn content_hidden(app: &AppHandle) -> bool {
+    with_browser(app, |b| b.overlay || b.webview_hidden)
+}
+
+pub fn set_overlay(app: &AppHandle, open: bool) {
+    let changed = with_browser(app, |b| std::mem::replace(&mut b.overlay, open) != open);
+    if open && changed {
+        focus_chrome(app);
+    }
+    apply_layout(app);
+}
+
 pub fn set_webview_visible(app: &AppHandle, visible: bool) {
-    with_browser(app, |b| b.webview_hidden = !visible);
+    let changed = with_browser(app, |b| std::mem::replace(&mut b.webview_hidden, !visible) == visible);
+    if !visible && changed {
+        focus_chrome(app);
+    }
     apply_layout(app);
 }
 

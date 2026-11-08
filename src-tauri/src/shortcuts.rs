@@ -148,6 +148,11 @@ pub fn vk_to_key(vk: u32, mapped: Option<char>) -> Option<String> {
     }
 }
 
+/// A printable key (optionally with Shift) and no Ctrl/Alt/Meta.
+pub fn is_typing_key(input: &KeyInput) -> bool {
+    !input.ctrl && !input.alt && !input.meta && input.key.chars().count() == 1
+}
+
 /* ------------------------------------------------------------- Actions */
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -163,6 +168,11 @@ pub enum Origin {
 pub fn handle(app: &tauri::AppHandle, input: &KeyInput, origin: Origin) -> bool {
     use tauri::Manager;
 
+    // Typing must never be swallowed: plain character keys are not hotkeys
+    // (the hotkey editor only accepts Ctrl/Alt combos and function keys).
+    if is_typing_key(input) {
+        return false;
+    }
     let Some(store) = app.try_state::<crate::settings::SettingsStore>() else {
         return false;
     };
@@ -354,6 +364,16 @@ mod tests {
         assert_eq!(match_hotkey(&compiled, &key("n", false, true, false)), Some("newTab"));
         assert_eq!(match_hotkey(&compiled, &key("q", true, false, false)), Some("closeTab"));
         assert_eq!(compiled.len(), 2);
+    }
+
+    #[test]
+    fn typing_keys_are_never_hotkeys() {
+        assert!(is_typing_key(&key("m", false, false, false)));
+        assert!(is_typing_key(&key("M", false, false, true)));
+        assert!(is_typing_key(&key(" ", false, false, false)));
+        assert!(!is_typing_key(&key("m", true, false, false)));
+        assert!(!is_typing_key(&key("f5", false, false, false)));
+        assert!(!is_typing_key(&key("escape", false, false, true)));
     }
 
     #[test]

@@ -150,9 +150,7 @@ pub async fn print_tab(app: AppHandle) -> CmdResult {
 
 #[tauri::command]
 pub async fn focus_content(app: AppHandle) -> CmdResult {
-    if let Some(webview) = tabs::active_webview(&app) {
-        let _ = webview.set_focus();
-    }
+    tabs::focus_content(&app);
     Ok(())
 }
 
