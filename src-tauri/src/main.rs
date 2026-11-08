@@ -77,6 +77,7 @@ fn main() {
             commands::get_settings,
             commands::save_settings,
             commands::save_theme,
+            commands::get_update_status,
         ])
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;

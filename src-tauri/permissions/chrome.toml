@@ -28,4 +28,5 @@ commands.allow = [
   "get_settings",
   "save_settings",
   "save_theme",
+  "get_update_status",
 ]

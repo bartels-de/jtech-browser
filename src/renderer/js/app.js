@@ -3641,7 +3641,7 @@ function describeUpdateError(message = '') {
 }
 
 function describeUpdate(status) {
-  if (!status.supported) return 'Nur in der installierten Version';
+  if (!status.supported) return status.unsupportedLabel || 'Nur in der installierten Version';
   switch (status.state) {
     case 'checking': return 'Suche nach Updates …';
     case 'downloading': return `Lade Version ${status.version || ''} … ${status.percent || 0} %`.replace('  ', ' ');
@@ -3664,7 +3664,7 @@ function renderUpdateStatus(status) {
   updateEls.install.hidden = !ready;
   updateEls.check.disabled = !status.supported || status.state === 'checking' || status.state === 'downloading';
   if (!status.supported) {
-    updateEls.hint.textContent = 'Im Entwicklungsmodus (npm start) gibt es keine Updates.';
+    updateEls.hint.textContent = status.unsupportedReason || 'Im Entwicklungsmodus (npm start) gibt es keine Updates.';
   } else if (status.state === 'error' && status.message) {
     updateEls.hint.textContent = `Details: ${status.message.split('\n')[0].slice(0, 160)}`;
   } else {

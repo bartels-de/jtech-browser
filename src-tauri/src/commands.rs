@@ -237,3 +237,23 @@ pub async fn save_theme(app: AppHandle, theme: Value) -> CmdResult<Value> {
     emit_chrome(&app, "theme:update", saved.clone());
     Ok(saved)
 }
+
+/* ---------------------------------------------------------------- Updates */
+
+/// Update status in the shape of `publicUpdateState()` in main.js. The
+/// Tauri build has no updater yet, so it reports "unsupported" with a
+/// reason that the UI shows instead of Electron's dev-mode text.
+#[tauri::command]
+pub async fn get_update_status(app: AppHandle) -> CmdResult<Value> {
+    Ok(serde_json::json!({
+        "state": "idle",
+        "version": null,
+        "percent": 0,
+        "message": "",
+        "lastCheck": 0,
+        "current": app.package_info().version.to_string(),
+        "supported": false,
+        "unsupportedLabel": "Noch nicht verfügbar",
+        "unsupportedReason": "Automatische Updates folgen in einer späteren Version. Neue Versionen bitte vorerst manuell installieren."
+    }))
+}

@@ -211,8 +211,9 @@
     listDownloads: resolved([]),
     getMetrics: resolved([]),
     getResources: resolved(null),
-    getUpdateStatus: resolved({ state: 'idle', supported: false }),
-    checkForUpdates: resolved({ state: 'idle', supported: false }),
+    // No updater in the Tauri build yet; Rust explains that in the status.
+    getUpdateStatus: () => invoke('get_update_status'),
+    checkForUpdates: () => invoke('get_update_status'),
     installUpdate: resolved(false),
     resourceAction: resolved(null),
 
