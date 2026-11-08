@@ -365,6 +365,22 @@ function handleShortcut(input, origin) {
   return true;
 }
 
+// APIs, die Electron für Erweiterungen nicht bereitstellt. Erweiterungen, die
+// darauf aufbauen (z. B. uBlock Origin Lite), laden zwar, funktionieren aber nicht.
+const UNSUPPORTED_EXTENSION_PERMISSIONS = [
+  'declarativeNetRequest',
+  'declarativeNetRequestWithHostAccess',
+  'declarativeNetRequestFeedback',
+  'offscreen',
+  'userScripts',
+  'sidePanel'
+];
+
+function unsupportedPermissions(manifest) {
+  const requested = Array.isArray(manifest.permissions) ? manifest.permissions : [];
+  return UNSUPPORTED_EXTENSION_PERMISSIONS.filter((permission) => requested.includes(permission));
+}
+
 /** Liest das passendste Icon einer Erweiterung als data:-URL (für das UI). */
 function extensionIcon(manifest, extPath) {
   const action = manifest.action || manifest.browser_action || {};
@@ -402,7 +418,8 @@ function extensionMetadata(extension, extPath) {
     version: extension.version || manifest.version || '',
     path: resolvedPath,
     icon: resolvedPath ? extensionIcon(manifest, resolvedPath) : '',
-    hasAction: Boolean(manifest.action || manifest.browser_action)
+    hasAction: Boolean(manifest.action || manifest.browser_action),
+    unsupported: unsupportedPermissions(manifest)
   };
 }
 
@@ -452,6 +469,15 @@ function setupChromeExtensions() {
   } catch (error) {
     console.warn('[extensions] Chrome-API nicht verfügbar:', error.message);
     chromeExtensions = null;
+    return;
+  }
+
+  // Im Dev-Modus DevTools für Erweiterungs-Popups öffnen (Popup bleibt dann offen).
+  if (IS_DEV) {
+    chromeExtensions.on('browser-action-popup-created', (popup) => {
+      const contents = popup?.browserWindow?.webContents;
+      if (contents && !contents.isDestroyed()) contents.openDevTools({ mode: 'detach' });
+    });
   }
 }
 

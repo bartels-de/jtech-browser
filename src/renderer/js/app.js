@@ -1820,6 +1820,13 @@ function renderExtensions(list) {
 
     main.append(name, meta);
 
+    if (Array.isArray(extension.unsupported) && extension.unsupported.length) {
+      const warning = document.createElement('span');
+      warning.className = 'extension-row__warning';
+      warning.textContent = `Funktioniert evtl. nicht – benötigt nicht unterstützte APIs: ${extension.unsupported.join(', ')}`;
+      main.append(warning);
+    }
+
     const remove = document.createElement('button');
     remove.type = 'button';
     remove.className = 'fav-row__remove';
@@ -3329,11 +3336,12 @@ if (els.bookmarksImport) {
 }
 els.extensionsLoad.addEventListener('click', async () => {
   const before = extensions.length;
+  const previousIds = new Set(extensions.map((extension) => extension.id));
   try {
     const next = await api.loadExtension();
     renderExtensions(next);
     if (next.length > before) {
-      showExtensionStatus('Erweiterung erfolgreich geladen.', 'success');
+      reportInstalledExtension(previousIds, next, 'Erweiterung erfolgreich geladen.');
     } else {
       showExtensionStatus('Laden abgebrochen oder fehlgeschlagen (Manifest prüfen).', 'error');
     }
@@ -3383,13 +3391,14 @@ if (els.extensionStoreInstall) {
       return;
     }
     const before = extensions.length;
+    const previousIds = new Set(extensions.map((extension) => extension.id));
     els.extensionStoreInstall.disabled = true;
     showExtensionStatus('Installiere Erweiterung…', 'idle');
     try {
       const next = await api.installExtensionFromStore(input);
       renderExtensions(next);
       if (next.length > before) {
-        showExtensionStatus('Erweiterung aus dem Web Store installiert.', 'success');
+        reportInstalledExtension(previousIds, next, 'Erweiterung aus dem Web Store installiert.');
         if (els.extensionStoreInput) els.extensionStoreInput.value = '';
       } else {
         showExtensionStatus('Installation fehlgeschlagen. ID oder URL prüfen.', 'error');
@@ -3403,14 +3412,29 @@ if (els.extensionStoreInstall) {
   });
 }
 
-function showExtensionStatus(message, state = 'idle') {
+/** Status nach einer Installation, inkl. Warnung bei nicht unterstützten APIs. */
+function reportInstalledExtension(previousIds, next, successMessage) {
+  const added = next.find((extension) => !previousIds.has(extension.id));
+  const unsupported = Array.isArray(added?.unsupported) ? added.unsupported : [];
+  if (unsupported.length) {
+    showExtensionStatus(
+      `${added.name || 'Erweiterung'} installiert, funktioniert aber evtl. nicht (benötigt: ${unsupported.join(', ')}).`,
+      'warning',
+      9000
+    );
+  } else {
+    showExtensionStatus(successMessage, 'success');
+  }
+}
+
+function showExtensionStatus(message, state = 'idle', duration = 4000) {
   els.extensionsStatus.textContent = message;
   els.extensionsStatus.hidden = false;
   els.extensionsStatus.dataset.state = state;
   clearTimeout(els.extensionsStatus._timer);
   els.extensionsStatus._timer = setTimeout(() => {
     els.extensionsStatus.hidden = true;
-  }, 4000);
+  }, duration);
 }
 
 for (const button of els.settingsNavButtons) {
