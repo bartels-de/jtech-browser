@@ -53,6 +53,7 @@
     "@ghostery/adblocker-electron": "^2.20.3",
     "adm-zip": "^0.6.1",
     "electron-chrome-extensions": "^4.10.0",
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "koffi": "^2.9.0"
   }
 }

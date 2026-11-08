@@ -3,7 +3,8 @@
 const path = require('node:path');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
-const { app, BrowserWindow, protocol, ipcMain, Menu, dialog, session, shell } = require('electron');
+const os = require('node:os');
+const { app, BrowserWindow, protocol, ipcMain, Menu, dialog, session, shell, webContents } = require('electron');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
 
@@ -33,6 +34,8 @@ const {
 } = require('./config');
 const { compileHotkeys, matchHotkey } = require('./shortcuts');
 const { TabManager } = require('./tabs');
+const { ResourceManager } = require('./resources');
+const { createJobLimiter } = require('./job-limit');
 const AdmZip = require('adm-zip');
 const { ElectronChromeExtensions } = require('electron-chrome-extensions');
 
@@ -70,6 +73,8 @@ let downloads = [];
 let overlayOpen = false;
 let adblocker = null;
 let chromeExtensions = null;
+let resources = null;
+const jobLimiter = createJobLimiter();
 let windowClosing = false;
 
 function createWindow() {
@@ -117,6 +122,7 @@ function createWindow() {
     setZoomFactor,
     onViewCreated: (contents) => {
       try { chromeExtensions?.addTab(contents, window); } catch (error) { console.warn('[extensions] addTab:', error.message); }
+      resources?.onTabCreated(contents);
     },
     onTabActivated: (contents) => {
       if (!contents || contents.isDestroyed()) return;
@@ -154,10 +160,28 @@ function createWindow() {
   });
 
   window.on('closed', () => {
+    resources?.stop();
+    resources = null;
     window = null;
     chrome = null;
     tabs = null;
   });
+
+  // Ressourcen-Manager: zentrale Messung, Limits und Prozess-Manager.
+  resources = new ResourceManager({
+    app,
+    os,
+    webContents,
+    getTabManager: () => tabs,
+    getExtensions: () => loadedExtensions,
+    getUiContents: () => chrome,
+    jobLimiter,
+    onEvent: (text) => {
+      if (chrome && !chrome.isDestroyed()) chrome.send('resources:event', text);
+    }
+  });
+  resources.applySettings(settings?.performance || {});
+  resources.start();
 
   window.loadFile(path.join(RENDERER_DIR, 'index.html'));
   window.once('ready-to-show', () => window.show());
@@ -349,6 +373,10 @@ function handleShortcut(input, origin) {
       break;
     case 'zoomReset':
       tabs.zoom('reset');
+      break;
+    case 'taskManager':
+      chrome.focus();
+      chrome.send('ui:task-manager');
       break;
     case 'devTools': {
       const target = origin.source === 'content'
@@ -644,6 +672,7 @@ function applySettingsUpdate(next) {
   if (settings.ui.gamingMode) tabs?.sleepBackgroundTabs();
   else tabs?.wakeAllTabs();
   updateAdblock(!!settings.privacy?.adblock);
+  resources?.applySettings(settings.performance || {});
   if (chrome && !chrome.isDestroyed()) chrome.send('settings:update', next);
   return next;
 }
@@ -945,21 +974,22 @@ function registerIpc() {
     return loadedExtensions;
   });
 
-  ipcMain.handle('system:metrics', () => {
-    const metrics = app.getAppMetrics();
-    const tabByPid = new Map();
-    for (const tab of tabs?.tabs?.values() || []) {
-      if (tab.view && !tab.view.webContents.isDestroyed()) {
-        tabByPid.set(tab.view.webContents.getOSProcessId(), tab.id);
-      }
-    }
-    return metrics.map((metric) => ({
-      pid: metric.pid,
-      cpu: Math.round(metric.cpu.percentCPUUsage),
-      memory: Math.round(metric.memory.workingSetSize / 1024),
-      tabId: tabByPid.get(metric.pid) || null
-    }));
+  // Schnappschuss des Ressourcen-Managers (misst selbst alle 2 s).
+  ipcMain.handle('resources:snapshot', () => resources?.snapshot() || null);
+
+  ipcMain.handle('resources:action', (_event, payload) => {
+    if (!payload || typeof payload.type !== 'string') return false;
+    return resources?.action({
+      type: payload.type,
+      pid: Number.isInteger(payload.pid) ? payload.pid : null,
+      tabId: typeof payload.tabId === 'string' ? payload.tabId : null
+    }) || false;
   });
+
+  // Kompatibel zum alten HUD: liest den letzten Schnappschuss statt neu zu messen.
+  ipcMain.handle('system:metrics', () => (resources?.snapshot()?.processes || [])
+    .filter((row) => row.pid)
+    .map((row) => ({ pid: row.pid, cpu: row.cpu, memory: row.memory, tabId: row.tabId })));
 
   ipcMain.on('downloads:open', (_event, id) => {
     const download = downloads.find((entry) => entry.id === id);

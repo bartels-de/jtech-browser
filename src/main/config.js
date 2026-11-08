@@ -67,6 +67,15 @@ const DEFAULT_SETTINGS = {
     adblock: true,
     trackingProtection: true
   },
+  // Ressourcen-Limits (Ressourcen-Panel). cpuLimit in % der Gesamt-CPU (100 = aus),
+  // ramLimit in MB (0 = aus).
+  performance: {
+    enabled: false,
+    cpuLimit: 50,
+    ramLimit: 0,
+    hardCap: true,
+    lowPriority: false
+  },
   favorites: [],
   saved: [],
   shortcuts: [],
@@ -133,7 +142,8 @@ const DEFAULT_SETTINGS = {
     zoomIn: ['Ctrl+=', 'Ctrl+NumpadAdd'],
     zoomOut: ['Ctrl+-', 'Ctrl+NumpadSubtract'],
     zoomReset: ['Ctrl+0'],
-    devTools: ['F12', 'Ctrl+Shift+I']
+    devTools: ['F12', 'Ctrl+Shift+I'],
+    taskManager: ['Shift+Escape']
   }
 };
 
@@ -509,6 +519,35 @@ function normalizePrivacy(input, fallback = DEFAULT_SETTINGS.privacy) {
   };
 }
 
+const CPU_LIMIT_RANGE = [10, 100];
+const RAM_LIMIT_RANGE = [512, 65536];
+
+function normalizePerformance(input, fallback = DEFAULT_SETTINGS.performance) {
+  const performance = input && typeof input === 'object' ? input : {};
+  const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_SETTINGS.performance;
+  const bool = (value, fallbackValue) => (typeof value === 'boolean' ? value : Boolean(fallbackValue));
+
+  const cpu = Number(performance.cpuLimit);
+  const cpuLimit = Number.isFinite(cpu)
+    ? Math.round(Math.min(CPU_LIMIT_RANGE[1], Math.max(CPU_LIMIT_RANGE[0], cpu)) / 5) * 5
+    : base.cpuLimit;
+
+  // 0 bedeutet „kein RAM-Limit“; sonst auf 256 MB runden.
+  const ram = Number(performance.ramLimit);
+  let ramLimit = base.ramLimit;
+  if (Number.isFinite(ram)) {
+    ramLimit = ram <= 0 ? 0 : Math.round(Math.min(RAM_LIMIT_RANGE[1], Math.max(RAM_LIMIT_RANGE[0], ram)) / 256) * 256;
+  }
+
+  return {
+    enabled: bool(performance.enabled, base.enabled),
+    cpuLimit,
+    ramLimit,
+    hardCap: bool(performance.hardCap, base.hardCap),
+    lowPriority: bool(performance.lowPriority, base.lowPriority)
+  };
+}
+
 function normalizeSaved(input) {
   if (!Array.isArray(input)) return [];
   return normalizeFavorites(input).slice(0, 200);
@@ -769,6 +808,7 @@ function loadSettings() {
   }
   cached.zoom = normalizeZoom(cached.zoom);
   cached.privacy = normalizePrivacy(cached.privacy);
+  cached.performance = normalizePerformance(cached.performance);
   cached.theme = normalizeTheme(cached.theme);
   cached.hotkeys = normalizeHotkeys(cached.hotkeys);
   persist();
@@ -792,6 +832,7 @@ function publicSettings() {
     extensions: [...current.extensions],
     history: getHistory(),
     privacy: { ...current.privacy },
+    performance: { ...current.performance },
     hotkeys: Object.fromEntries(
       Object.entries(current.hotkeys).map(([action, accelerators]) => [action, [...accelerators]])
     ),
@@ -827,6 +868,7 @@ function updateSettings(patch) {
     }
     if (patch.zoom) current.zoom = normalizeZoom(patch.zoom);
     if (patch.privacy) current.privacy = normalizePrivacy(patch.privacy, current.privacy);
+    if (patch.performance) current.performance = normalizePerformance(patch.performance, current.performance);
     if (patch.hotkeys) current.hotkeys = normalizeHotkeys(patch.hotkeys, current.hotkeys);
   }
 
@@ -1098,6 +1140,7 @@ module.exports = {
   normalizeHistory,
   normalizeZoom,
   normalizePrivacy,
+  normalizePerformance,
   normalizeHotkeys,
   getZoomFactor,
   setZoomFactor,

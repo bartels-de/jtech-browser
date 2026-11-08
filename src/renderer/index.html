@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="styles/app.css" />
     <link rel="stylesheet" href="styles/obsidian.css" />
     <link rel="stylesheet" href="styles/studio.css" />
+    <link rel="stylesheet" href="styles/resources.css" />
   </head>
   <body data-tab-layout="horizontal">
     <div class="backdrop" aria-hidden="true"></div>
@@ -125,7 +126,7 @@
               <path d="M9 9.5v4M7 11.5h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
             </svg>
           </button>
-          <button class="icon-btn" id="resource-hud-toggle" title="Ressourcen-HUD" aria-label="Ressourcen-HUD umschalten">
+          <button class="icon-btn" id="resource-hud-toggle" title="Ressourcen &amp; Prozesse (Shift+Esc)" aria-label="Ressourcen-Panel umschalten" aria-expanded="false" aria-controls="res-panel">
             <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
               <rect x="3" y="10" width="3" height="7" rx="1" fill="currentColor" />
               <rect x="8.5" y="6" width="3" height="11" rx="1" fill="currentColor" />
@@ -224,16 +225,6 @@
         <span class="split-control__title" id="split-right-title">Rechts</span>
       </div>
 
-      <div class="resource-hud" id="resource-hud" hidden>
-        <div class="resource-hud__head">
-          <p class="resource-hud__title">Ressourcen-HUD</p>
-          <button class="resource-hud__close" id="resource-hud-close" type="button" aria-label="Schließen">×</button>
-        </div>
-        <div class="resource-hud__row"><span>RAM (gesamt)</span><strong id="hud-ram">–</strong></div>
-        <div class="resource-hud__row"><span>CPU (gesamt)</span><strong id="hud-cpu">–</strong></div>
-        <div class="resource-hud__row"><span>Aktiver Tab</span><strong id="hud-tab">–</strong></div>
-        <div class="resource-hud__row"><span>Tabs</span><strong id="hud-tabs">–</strong></div>
-      </div>
     </header>
 
         <aside class="sidebar" id="sidebar" aria-label="Seitenleiste">
@@ -278,6 +269,107 @@
     <main class="stage" id="stage">
       <div class="stage__glow" aria-hidden="true"></div>
     </main>
+
+    <aside class="res-panel" id="res-panel" hidden aria-hidden="true" aria-label="Ressourcen">
+      <header class="res-panel__head">
+        <div>
+          <p class="res-panel__eyebrow">JTech Browser</p>
+          <h2 class="res-panel__title">Ressourcen</h2>
+        </div>
+        <button class="icon-btn" id="res-panel-close" title="Schließen" aria-label="Ressourcen-Panel schließen">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          </svg>
+        </button>
+      </header>
+
+      <div class="res-panel__scroll">
+        <section class="res-stats" aria-label="Aktueller Verbrauch">
+          <div class="res-stat">
+            <div class="res-stat__top">
+              <span class="res-stat__label">CPU</span>
+              <span class="res-stat__limit" id="res-cpu-limit-label"></span>
+            </div>
+            <strong class="res-stat__value" id="res-cpu-value">–</strong>
+            <span class="res-stat__sub">der Gesamt-CPU</span>
+            <div class="res-chart" id="res-cpu-chart" role="img" aria-label="CPU-Verlauf der letzten 3 Minuten">
+              <canvas></canvas>
+              <span class="res-chart__tip" hidden></span>
+            </div>
+          </div>
+          <div class="res-stat">
+            <div class="res-stat__top">
+              <span class="res-stat__label">RAM</span>
+              <span class="res-stat__limit" id="res-ram-limit-label"></span>
+            </div>
+            <strong class="res-stat__value" id="res-ram-value">–</strong>
+            <span class="res-stat__sub" id="res-ram-sub">Arbeitsspeicher</span>
+            <div class="res-chart" id="res-ram-chart" role="img" aria-label="RAM-Verlauf der letzten 3 Minuten">
+              <canvas></canvas>
+              <span class="res-chart__tip" hidden></span>
+            </div>
+          </div>
+        </section>
+        <p class="res-meta" id="res-meta">–</p>
+
+        <section class="res-section" aria-labelledby="res-limits-title">
+          <div class="res-section__head">
+            <h3 class="res-section__title" id="res-limits-title">Limits</h3>
+            <label class="res-switch" title="Limits ein- oder ausschalten">
+              <input type="checkbox" id="res-enabled" />
+              <span>Aktiv</span>
+            </label>
+          </div>
+          <div class="res-limits" id="res-limits">
+            <div class="res-slider">
+              <div class="res-slider__row">
+                <label for="res-cpu-limit">Max. CPU</label>
+                <output id="res-cpu-limit-value" for="res-cpu-limit">50 %</output>
+              </div>
+              <input class="range" type="range" id="res-cpu-limit" min="10" max="100" step="5" value="50" />
+            </div>
+            <div class="res-slider">
+              <div class="res-slider__row">
+                <label for="res-ram-limit">Max. RAM</label>
+                <output id="res-ram-limit-value" for="res-ram-limit">Kein Limit</output>
+              </div>
+              <input class="range" type="range" id="res-ram-limit" min="512" max="16384" step="256" value="16384" />
+            </div>
+            <label class="res-check">
+              <input type="checkbox" id="res-hard-cap" />
+              <span>
+                <strong>Hartes CPU-Limit</strong>
+                <small id="res-hard-cap-note">Windows begrenzt die CPU-Zeit des Browsers.</small>
+              </span>
+            </label>
+            <label class="res-check">
+              <input type="checkbox" id="res-low-priority" />
+              <span>
+                <strong>Niedrige Priorität</strong>
+                <small>Spiele und andere Programme haben Vorrang.</small>
+              </span>
+            </label>
+            <p class="res-hint">Beim RAM-Limit werden Hintergrund-Tabs schlafen gelegt. Aktive, angeheftete und Ton abspielende Tabs bleiben wach.</p>
+          </div>
+        </section>
+
+        <section class="res-section" aria-labelledby="res-events-title" id="res-events-section" hidden>
+          <h3 class="res-section__title" id="res-events-title">Letzte Eingriffe</h3>
+          <ul class="res-events" id="res-events"></ul>
+        </section>
+
+        <section class="res-section" aria-labelledby="res-proc-title">
+          <div class="res-section__head">
+            <h3 class="res-section__title" id="res-proc-title">Prozesse</h3>
+            <div class="res-sort" role="group" aria-label="Sortieren nach">
+              <button class="res-sort__btn is-active" type="button" data-sort="cpu" aria-pressed="true">CPU</button>
+              <button class="res-sort__btn" type="button" data-sort="memory" aria-pressed="false">RAM</button>
+            </div>
+          </div>
+          <ul class="res-procs" id="res-procs"></ul>
+        </section>
+      </div>
+    </aside>
 
     <aside class="media-hub" id="media-hub" hidden aria-hidden="true" aria-label="Media-Hub">
       <header class="media-hub__head">

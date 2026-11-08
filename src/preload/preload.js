@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('jtech', {
   openExtensionPopup: (extensionId, anchorRect) => ipcRenderer.invoke('extensions:open-popup', { extensionId, anchorRect }),
   listDownloads: () => ipcRenderer.invoke('downloads:list'),
   getMetrics: () => ipcRenderer.invoke('system:metrics'),
+  getResources: () => ipcRenderer.invoke('resources:snapshot'),
+  resourceAction: (payload) => ipcRenderer.invoke('resources:action', payload),
   addFavorite: (entry) => ipcRenderer.invoke('favorites:add', entry),
   removeFavorite: (id) => ipcRenderer.invoke('favorites:remove', id),
   addSaved: (entry) => ipcRenderer.invoke('saved:add', entry),
@@ -113,6 +115,18 @@ contextBridge.exposeInMainWorld('jtech', {
     const listener = () => callback();
     ipcRenderer.on('ui:command-palette', listener);
     return () => ipcRenderer.removeListener('ui:command-palette', listener);
+  },
+
+  onOpenTaskManager: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('ui:task-manager', listener);
+    return () => ipcRenderer.removeListener('ui:task-manager', listener);
+  },
+
+  onResourceEvent: (callback) => {
+    const listener = (_event, text) => callback(text);
+    ipcRenderer.on('resources:event', listener);
+    return () => ipcRenderer.removeListener('resources:event', listener);
   },
 
   onOpenFind: (callback) => {
