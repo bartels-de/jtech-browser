@@ -75,7 +75,6 @@ const DEFAULT_SETTINGS = {
   bookmarkFolders: [],
   tabGroups: [],
   extensions: [],
-  history: [],
   zoom: {},
   theme: {
     // Obsidian-Design: warmer Akzent auf tiefem Anthrazit.
@@ -621,22 +620,84 @@ function normalizeBookmarks(input) {
   return result;
 }
 
-function persist() {
+/** Schreibt JSON atomar (erst .tmp, dann ersetzen). Gibt true bei Erfolg zurück. */
+function writeJsonAtomic(file, data, pretty = true) {
   try {
-    const dir = path.dirname(settingsPath());
-    fs.mkdirSync(dir, { recursive: true });
-    const tmp = settingsPath() + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(cached, null, 2), 'utf8');
-    // Atomares Ersetzen: verhindert halb geschriebene/kaputte settings.json.
-    try { fs.renameSync(tmp, settingsPath()); }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const tmp = file + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(data, null, pretty ? 2 : 0), 'utf8');
+    // Atomares Ersetzen: verhindert halb geschriebene/kaputte Dateien.
+    try { fs.renameSync(tmp, file); }
     catch {
       // Fallback für Windows (Ziel existiert): überschreiben.
-      fs.copyFileSync(tmp, settingsPath());
+      fs.copyFileSync(tmp, file);
       try { fs.unlinkSync(tmp); } catch {}
     }
+    return true;
   } catch (error) {
-    console.warn('[config] Einstellungen konnten nicht gespeichert werden:', error.message);
+    console.warn('[config] Datei konnte nicht gespeichert werden:', file, error.message);
+    return false;
   }
+}
+
+function persist() {
+  writeJsonAtomic(settingsPath(), cached);
+}
+
+/* ---------------------------------------------------------------- Verlauf */
+
+// Der Verlauf liegt in einer eigenen history.json und wird gebündelt
+// geschrieben, statt bei jedem Seitenaufruf die ganze settings.json zu ersetzen.
+const HISTORY_SAVE_DELAY = 3000;
+let historyCache = null;
+let historySaveTimer = null;
+
+function historyPath() {
+  return path.join(app.getPath('userData'), 'history.json');
+}
+
+function loadHistory() {
+  if (historyCache) return historyCache;
+  let stored = readJson(historyPath());
+  if (stored === null && fs.existsSync(historyPath())) {
+    try { fs.copyFileSync(historyPath(), historyPath() + '.corrupt-' + Date.now()); } catch {}
+    stored = readJson(historyPath() + '.tmp');
+  }
+  historyCache = normalizeHistory(Array.isArray(stored) ? stored : []);
+  return historyCache;
+}
+
+function saveHistoryNow() {
+  if (historySaveTimer) {
+    clearTimeout(historySaveTimer);
+    historySaveTimer = null;
+  }
+  if (!historyCache) return true;
+  return writeJsonAtomic(historyPath(), historyCache, false);
+}
+
+function scheduleHistorySave() {
+  if (historySaveTimer) return;
+  historySaveTimer = setTimeout(() => {
+    historySaveTimer = null;
+    saveHistoryNow();
+  }, HISTORY_SAVE_DELAY);
+  historySaveTimer.unref?.();
+}
+
+/** Ausstehende Verlaufs-Änderungen sofort schreiben (z. B. beim Beenden). */
+function flushHistory() {
+  if (historySaveTimer) saveHistoryNow();
+}
+
+function getHistory() {
+  return loadHistory().map((entry) => ({ ...entry }));
+}
+
+function setHistory(entries) {
+  historyCache = normalizeHistory(entries);
+  saveHistoryNow();
+  return getHistory();
 }
 
 function loadSettings() {
@@ -679,7 +740,16 @@ function loadSettings() {
   cached.bookmarkFolders = normalizeBookmarkFolders(cached.bookmarkFolders);
   cached.tabGroups = normalizeTabGroups(cached.tabGroups);
   cached.extensions = normalizeExtensions(cached.extensions);
-  cached.history = normalizeHistory(cached.history);
+  // Migration: Verlauf aus alten settings.json-Versionen nach history.json.
+  const legacyHistory = normalizeHistory(cached.history);
+  delete cached.history;
+  if (legacyHistory.length && !fs.existsSync(historyPath())) {
+    historyCache = legacyHistory;
+    if (!saveHistoryNow()) {
+      // Schreiben fehlgeschlagen: Verlauf vorerst in settings.json behalten.
+      cached.history = legacyHistory;
+    }
+  }
   cached.zoom = normalizeZoom(cached.zoom);
   cached.privacy = normalizePrivacy(cached.privacy);
   cached.theme = normalizeTheme(cached.theme);
@@ -703,7 +773,7 @@ function publicSettings() {
     bookmarkFolders: current.bookmarkFolders.map((folder) => ({ ...folder })),
     tabGroups: current.tabGroups.map((group) => ({ ...group })),
     extensions: [...current.extensions],
-    history: current.history.map((entry) => ({ ...entry })),
+    history: getHistory(),
     privacy: { ...current.privacy },
     hotkeys: Object.fromEntries(
       Object.entries(current.hotkeys).map(([action, accelerators]) => [action, [...accelerators]])
@@ -734,7 +804,10 @@ function updateSettings(patch) {
     if (patch.bookmarkFolders) current.bookmarkFolders = normalizeBookmarkFolders(patch.bookmarkFolders);
     if (patch.tabGroups) current.tabGroups = normalizeTabGroups(patch.tabGroups);
     if (patch.extensions) current.extensions = normalizeExtensions(patch.extensions);
-    if (patch.history) current.history = normalizeHistory(patch.history);
+    if (patch.history) {
+      setHistory(patch.history);
+      delete current.history;
+    }
     if (patch.zoom) current.zoom = normalizeZoom(patch.zoom);
     if (patch.privacy) current.privacy = normalizePrivacy(patch.privacy, current.privacy);
     if (patch.hotkeys) current.hotkeys = normalizeHotkeys(patch.hotkeys, current.hotkeys);
@@ -777,27 +850,27 @@ function removeFavorite(id) {
 
 function addHistoryEntry({ url, title } = {}) {
   const normalized = normalizeFavoriteUrl(url);
-  if (!normalized) return publicSettings();
+  if (!normalized) return getHistory();
 
-  const current = loadSettings();
+  const history = loadHistory();
   const now = Date.now();
-  const last = current.history[0];
+  const last = history[0];
 
   if (last && last.url === normalized && now - Number(last.timestamp || 0) < 30000) {
-    last.title = favoriteTitle(title, normalized);
+    last.title = favoriteTitle(title, normalized).slice(0, 200);
     last.timestamp = now;
   } else {
-    current.history.unshift({
+    history.unshift({
       id: randomUUID(),
       url: normalized,
-      title: favoriteTitle(title, normalized),
+      title: favoriteTitle(title, normalized).slice(0, 200),
       timestamp: now
     });
+    if (history.length > 2000) history.length = 2000;
   }
 
-  current.history = normalizeHistory(current.history);
-  persist();
-  return publicSettings();
+  scheduleHistorySave();
+  return getHistory();
 }
 function addSaved(entry) {
   const current = loadSettings();
@@ -995,6 +1068,10 @@ module.exports = {
   updateTabGroup,
   removeTabGroup,
   addHistoryEntry,
+  getHistory,
+  setHistory,
+  flushHistory,
+  historyPath,
   normalizeTheme,
   normalizeSearch,
   normalizeUi,
