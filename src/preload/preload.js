@@ -63,6 +63,9 @@ contextBridge.exposeInMainWorld('jtech', {
   listDownloads: () => ipcRenderer.invoke('downloads:list'),
   getMetrics: () => ipcRenderer.invoke('system:metrics'),
   getResources: () => ipcRenderer.invoke('resources:snapshot'),
+  getUpdateStatus: () => ipcRenderer.invoke('update:get'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  installUpdate: () => ipcRenderer.invoke('update:install'),
   resourceAction: (payload) => ipcRenderer.invoke('resources:action', payload),
   addFavorite: (entry) => ipcRenderer.invoke('favorites:add', entry),
   removeFavorite: (id) => ipcRenderer.invoke('favorites:remove', id),
@@ -121,6 +124,12 @@ contextBridge.exposeInMainWorld('jtech', {
     const listener = () => callback();
     ipcRenderer.on('ui:task-manager', listener);
     return () => ipcRenderer.removeListener('ui:task-manager', listener);
+  },
+
+  onUpdateStatus: (callback) => {
+    const listener = (_event, status) => callback(status);
+    ipcRenderer.on('update:status', listener);
+    return () => ipcRenderer.removeListener('update:status', listener);
   },
 
   onResourceEvent: (callback) => {

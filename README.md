@@ -44,6 +44,32 @@ npm test           # run tests
 npm run build      # Windows installer (NSIS, x64) into dist/
 ```
 
+## Releases & automatic updates
+
+Installed browsers update themselves from the
+[GitHub releases](https://github.com/bartels-de/jtech-browser/releases): new
+versions are downloaded in the background and installed on the next restart.
+"Update ready" in the toolbar (or Settings → About) restarts immediately.
+
+To publish a release:
+
+1. Bump `version` in `package.json` and add the changes to `src/renderer/changelog.html`.
+2. Merge into `main`.
+3. Push a matching tag:
+
+   ```powershell
+   git tag v0.8.1
+   git push origin v0.8.1
+   ```
+
+The **Release** workflow (`.github/workflows/release.yml`) then runs the tests,
+builds the Windows installer and publishes it together with `latest.yml`, which
+installed browsers check every four hours. The tag must match the version in
+`package.json`, otherwise the workflow stops.
+
+The installer is not code-signed, so Windows SmartScreen may show a warning on
+the first install.
+
 ## Design Studio
 
 The slider button in the toolbar opens the Design Studio. While it is open, the
@@ -189,10 +215,8 @@ tests/              Hotkeys, settings, theme validation (node:test)
 ## Roadmap
 
 1. **Hotkey editor**: rebind keys in settings, with conflict detection
-2. **Extensions**: integrate `electron-chrome-extensions` (popups, toolbar icons, chrome.* APIs)
-3. **Auto-update** (electron-updater is built in but still needs an update server)
-4. **Sidebar** with quick access (Discord, Twitch, …)
-5. Force dark mode
+2. **Sidebar** with quick access (Discord, Twitch, …)
+3. Force dark mode
 
 ## License
 

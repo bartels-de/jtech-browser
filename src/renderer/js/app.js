@@ -3563,6 +3563,66 @@ if (els.gamingModeButton) {
   });
 }
 
+/* ------------------------------------------------------------ Auto-Update */
+
+const updateEls = {
+  pill: document.getElementById('update-ready'),
+  pillLabel: document.getElementById('update-ready-label'),
+  version: document.getElementById('settings-version'),
+  status: document.getElementById('update-status'),
+  check: document.getElementById('update-check'),
+  install: document.getElementById('update-install'),
+  hint: document.getElementById('update-hint')
+};
+
+function describeUpdate(status) {
+  if (!status.supported) return 'Nur in der installierten Version';
+  switch (status.state) {
+    case 'checking': return 'Suche nach Updates …';
+    case 'downloading': return `Lade Version ${status.version || ''} … ${status.percent || 0} %`.replace('  ', ' ');
+    case 'ready': return `Version ${status.version} bereit`;
+    case 'none': return 'Aktuell';
+    case 'error': return 'Prüfung fehlgeschlagen';
+    default: return 'Noch nicht geprüft';
+  }
+}
+
+function renderUpdateStatus(status) {
+  if (!status) return;
+  updateEls.version.textContent = status.current || '–';
+  updateEls.status.textContent = describeUpdate(status);
+  updateEls.status.title = status.state === 'error' ? status.message || '' : '';
+
+  const ready = status.state === 'ready';
+  updateEls.pill.hidden = !ready;
+  updateEls.pillLabel.textContent = ready ? `Update ${status.version} bereit` : 'Update bereit';
+  updateEls.install.hidden = !ready;
+  updateEls.check.disabled = !status.supported || status.state === 'checking' || status.state === 'downloading';
+  updateEls.hint.textContent = status.supported
+    ? 'Updates werden im Hintergrund geladen und beim nächsten Beenden installiert.'
+    : 'Im Entwicklungsmodus (npm start) gibt es keine Updates.';
+}
+
+async function installUpdate() {
+  updateEls.pill.disabled = true;
+  updateEls.install.disabled = true;
+  const ok = await api.installUpdate();
+  if (!ok) {
+    updateEls.pill.disabled = false;
+    updateEls.install.disabled = false;
+  }
+}
+
+updateEls.pill?.addEventListener('click', installUpdate);
+updateEls.install?.addEventListener('click', installUpdate);
+updateEls.check?.addEventListener('click', async () => {
+  updateEls.check.disabled = true;
+  renderUpdateStatus(await api.checkForUpdates());
+});
+
+api.onUpdateStatus?.(renderUpdateStatus);
+api.getUpdateStatus?.().then(renderUpdateStatus).catch(() => {});
+
 /* ------------------------------------------------------- Ressourcen-Panel */
 
 const RESOURCE_KIND_ICONS = { browser: 'B', ui: 'UI', tab: 'T', extension: 'E', gpu: 'G', service: 'D', renderer: 'P' };
