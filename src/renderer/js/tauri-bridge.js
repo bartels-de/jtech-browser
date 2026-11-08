@@ -48,7 +48,25 @@
     return () => set.delete(callback);
   }
 
+  // Settings arrive after every save (as the save result and as
+  // settings:update). Answers to older saves must not overwrite what the
+  // user is still typing, e.g. "Dein Name" (the saved value is trimmed, so
+  // a just-typed space would vanish and later keystrokes get lost).
+  const LIVE_FIELDS = [['setting-username', 'ui', 'userName']];
+
+  function keepTypedValues(settings) {
+    if (!settings || typeof settings !== 'object') return settings;
+    const active = document.activeElement;
+    for (const [id, section, key] of LIVE_FIELDS) {
+      if (active && active.id === id && settings[section] && typeof settings[section] === 'object') {
+        settings = { ...settings, [section]: { ...settings[section], [key]: active.value } };
+      }
+    }
+    return settings;
+  }
+
   function dispatch(name, payload) {
+    if (name === 'settings:update') payload = keepTypedValues(payload);
     if (REPLAY.has(name)) lastPayload.set(name, payload);
     for (const callback of subscribers.get(name) || []) {
       try {
@@ -163,7 +181,7 @@
     saveTheme: (theme) => invoke('save_theme', { theme: theme ?? {} }),
 
     getSettings: () => invoke('get_settings'),
-    saveSettings: (patch) => invoke('save_settings', { patch: patch ?? {} }),
+    saveSettings: (patch) => invoke('save_settings', { patch: patch ?? {} }).then(keepTypedValues),
     clearHistory: () => invoke('save_settings', { patch: { history: [] } }),
     openDownload: noop,
     showDownload: noop,
