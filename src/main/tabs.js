@@ -138,8 +138,9 @@ class TabManager {
         nodeIntegration: false,
         sandbox: true,
         spellcheck: true,
-        // Kein Throttling: YouTube/Twitter laden sonst erst nach Reload.
-        backgroundThrottling: false,
+        // Throttling aktiv: spart CPU bei Hintergrund-Tabs.
+        // Wird bei Audio-Wiedergabe deaktiviert (siehe audio-state-changed).
+        backgroundThrottling: true,
         autoplayPolicy: 'no-user-gesture-required'
       }
     });
@@ -320,20 +321,23 @@ class TabManager {
     // Leerlaufzeit zählt ab dem Verlassen eines Tabs.
     const now = Date.now();
     const previous = this.activeId ? this.tabs.get(this.activeId) : null;
-    if (previous) previous.lastActiveAt = now;
+    if (previous) {
+      previous.lastActiveAt = now;
+      // Hintergrund-Tab: Throttling wieder aktivieren (außer Audio spielt oder YouTube).
+      const prevIsYouTube = previous.url && /youtube\.com/i.test(previous.url);
+      if (previous.view?.webContents && !previous.audible && !prevIsYouTube) {
+        previous.view.webContents.setBackgroundThrottling(true);
+      }
+    }
     tab.lastActiveAt = now;
 
     if (tab.sleeping) this.wake(id);
 
-    // YouTube-Videos laden manchmal erst nach Reload – Workaround.
-    if (tab.url && /youtube\.com/i.test(tab.url) && tab.view?.webContents) {
-      const contents = tab.view.webContents;
-      contents.setBackgroundThrottling(false);
-      if (!tab.loading && !contents.isLoading()) {
-        contents.executeJavaScript('document.querySelector("video") ? "ok" : "reload"').then((r) => {
-          if (r === 'reload') contents.reload();
-        }).catch(() => {});
-      }
+    // YouTube-Tabs: Throttling immer aus (Videos laden sonst nicht).
+    // Andere Tabs: Throttling nur im Hintergrund.
+    const isYouTube = tab.url && /youtube\.com/i.test(tab.url);
+    if (tab.view?.webContents) {
+      tab.view.webContents.setBackgroundThrottling(!isYouTube && (previous?.id !== tab.id));
     }
 
     // Split-View: Fokus nur wechseln, beide Views bleiben.
