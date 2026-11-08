@@ -143,7 +143,8 @@ const DEFAULT_SETTINGS = {
     zoomOut: ['Ctrl+-', 'Ctrl+NumpadSubtract'],
     zoomReset: ['Ctrl+0'],
     devTools: ['F12', 'Ctrl+Shift+I'],
-    taskManager: ['Shift+Escape']
+    taskManager: ['Shift+Escape'],
+    copyUrl: ['Ctrl+Shift+C']
   }
 };
 

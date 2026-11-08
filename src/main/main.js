@@ -4,7 +4,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { randomUUID } = require('node:crypto');
 const os = require('node:os');
-const { app, BrowserWindow, protocol, ipcMain, Menu, dialog, session, shell, webContents } = require('electron');
+const { app, BrowserWindow, protocol, ipcMain, Menu, dialog, session, shell, webContents, clipboard } = require('electron');
 let autoUpdater = null;
 try { autoUpdater = require('electron-updater').autoUpdater; } catch {}
 
@@ -376,6 +376,16 @@ function handleShortcut(input, origin) {
     case 'zoomReset':
       tabs.zoom('reset');
       break;
+    case 'copyUrl': {
+      // Adresse der aktiven Seite kopieren (nicht für die Startseite).
+      const url = tabs?.active?.view?.webContents?.getURL() || '';
+      const copyable = /^https?:\/\//i.test(url);
+      if (copyable) clipboard.writeText(url);
+      if (chrome && !chrome.isDestroyed()) {
+        chrome.send('ui:toast', copyable ? 'Link kopiert' : 'Diese Seite hat keinen Link zum Kopieren');
+      }
+      break;
+    }
     case 'taskManager':
       chrome.focus();
       chrome.send('ui:task-manager');
