@@ -33,6 +33,7 @@ const {
 const { compileHotkeys, matchHotkey } = require('./shortcuts');
 const { TabManager } = require('./tabs');
 const AdmZip = require('adm-zip');
+const { ElectronChromeExtensions } = require('electron-chrome-extensions');
 
 const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 const IS_DEV = process.argv.includes('--dev');
@@ -67,6 +68,8 @@ let loadedExtensions = [];
 let downloads = [];
 let overlayOpen = false;
 let adblocker = null;
+let chromeExtensions = null;
+let windowClosing = false;
 
 function createWindow() {
   window = new BrowserWindow({
@@ -110,7 +113,15 @@ function createWindow() {
       if (chrome && !chrome.isDestroyed()) chrome.send('history:update', loadSettings().history);
     },
     getZoomFactor,
-    setZoomFactor
+    setZoomFactor,
+    onViewCreated: (contents) => {
+      try { chromeExtensions?.addTab(contents, window); } catch (error) { console.warn('[extensions] addTab:', error.message); }
+    },
+    onTabActivated: (contents) => {
+      if (!contents || contents.isDestroyed()) return;
+      try { chromeExtensions?.selectTab(contents); } catch (error) { console.warn('[extensions] selectTab:', error.message); }
+    },
+    getContextMenuItems: (contents, params) => chromeExtensions?.getContextMenuItems(contents, params) || []
   });
 
   chrome.on('before-input-event', (event, input) => {
@@ -132,6 +143,7 @@ function createWindow() {
   window.on('leave-full-screen', () => { if (chrome && !chrome.isDestroyed()) chrome.send('window:fullscreen', { fullscreen: false }); });
   window.on('resize', () => tabs.layout(window.getContentBounds()));
   window.on('close', () => {
+    windowClosing = true;
     if (tabs && settings?.ui?.restoreSession) {
       try {
         fs.writeFileSync(sessionPath(), JSON.stringify(tabs.getState()), 'utf8');
@@ -353,14 +365,120 @@ function handleShortcut(input, origin) {
   return true;
 }
 
+// APIs, die Electron für Erweiterungen nicht bereitstellt. Erweiterungen, die
+// darauf aufbauen (z. B. uBlock Origin Lite), laden zwar, funktionieren aber nicht.
+const UNSUPPORTED_EXTENSION_PERMISSIONS = [
+  'declarativeNetRequest',
+  'declarativeNetRequestWithHostAccess',
+  'declarativeNetRequestFeedback',
+  'offscreen',
+  'userScripts',
+  'sidePanel'
+];
+
+function unsupportedPermissions(manifest) {
+  const requested = Array.isArray(manifest.permissions) ? manifest.permissions : [];
+  return UNSUPPORTED_EXTENSION_PERMISSIONS.filter((permission) => requested.includes(permission));
+}
+
+/** Liest das passendste Icon einer Erweiterung als data:-URL (für das UI). */
+function extensionIcon(manifest, extPath) {
+  const action = manifest.action || manifest.browser_action || {};
+  const candidates = [];
+  if (typeof action.default_icon === 'string') candidates.push([32, action.default_icon]);
+  for (const source of [action.default_icon, manifest.icons]) {
+    if (source && typeof source === 'object') {
+      for (const [size, file] of Object.entries(source)) candidates.push([Number(size) || 0, file]);
+    }
+  }
+  // Bevorzugt ~32 px, sonst das nächstgrößere bzw. größte Icon.
+  candidates.sort((a, b) => Math.abs(a[0] - 32) - Math.abs(b[0] - 32) || b[0] - a[0]);
+  for (const [, file] of candidates) {
+    if (typeof file !== 'string') continue;
+    const filePath = path.resolve(extPath, file.replace(/^\/+/, ''));
+    if (!filePath.startsWith(path.resolve(extPath))) continue;
+    try {
+      const ext = path.extname(filePath).toLowerCase();
+      const mime = { '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' }[ext];
+      if (!mime) continue;
+      return `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
+    } catch {
+      /* nächstes Icon probieren */
+    }
+  }
+  return '';
+}
+
 function extensionMetadata(extension, extPath) {
   const manifest = extension.manifest || {};
+  const resolvedPath = extPath || extension.path || '';
   return {
     id: extension.id,
     name: extension.name || manifest.name || extension.id,
     version: extension.version || manifest.version || '',
-    path: extPath || extension.path || ''
+    path: resolvedPath,
+    icon: resolvedPath ? extensionIcon(manifest, resolvedPath) : '',
+    hasAction: Boolean(manifest.action || manifest.browser_action),
+    unsupported: unsupportedPermissions(manifest)
   };
+}
+
+/** Erweiterungsliste inkl. Badge/Titel des aktiven Tabs (chrome.action). */
+function extensionsWithActionState() {
+  let state = null;
+  try { state = chromeExtensions?.api?.browserAction?.getState?.() || null; } catch { state = null; }
+  const activeId = tabs?.active?.view?.webContents?.id;
+  return loadedExtensions.map((extension) => {
+    const action = state?.actions?.find((entry) => entry.id === extension.id);
+    const tabState = action && activeId != null ? action.tabs?.[activeId] : null;
+    const badge = tabState?.text ?? action?.text ?? '';
+    const badgeColor = tabState?.color ?? action?.color ?? '';
+    const title = tabState?.title ?? action?.title ?? '';
+    return { ...extension, badge: String(badge || ''), badgeColor: typeof badgeColor === 'string' ? badgeColor : '', title: String(title || '') };
+  });
+}
+
+/** Chrome-Erweiterungs-API (chrome.tabs, chrome.action, Popups, Kontextmenüs). */
+function setupChromeExtensions() {
+  try {
+    chromeExtensions = new ElectronChromeExtensions({
+      session: session.defaultSession,
+      async createTab(details = {}) {
+        if (!tabs || !window) throw new Error('Kein Browserfenster');
+        const tab = tabs.create({ url: details.url || 'jtech://newtab', activate: details.active !== false });
+        return [tab.view.webContents, window];
+      },
+      selectTab(contents) {
+        tabs?.activateByContents(contents);
+      },
+      removeTab(contents) {
+        if (windowClosing || !tabs || !window || window.isDestroyed()) return;
+        tabs.closeByContents(contents);
+      },
+      async createWindow(details = {}) {
+        // JTech Browser hat ein Fenster: neue "Fenster" werden zu Tabs.
+        if (!tabs || !window) throw new Error('Kein Browserfenster');
+        const urls = Array.isArray(details.url) ? details.url : [details.url || 'jtech://newtab'];
+        for (const url of urls) tabs.create({ url, activate: true });
+        return window;
+      },
+      removeWindow() {
+        /* Das Hauptfenster wird nicht von Erweiterungen geschlossen. */
+      }
+    });
+  } catch (error) {
+    console.warn('[extensions] Chrome-API nicht verfügbar:', error.message);
+    chromeExtensions = null;
+    return;
+  }
+
+  // Im Dev-Modus DevTools für Erweiterungs-Popups öffnen (Popup bleibt dann offen).
+  if (IS_DEV) {
+    chromeExtensions.on('browser-action-popup-created', (popup) => {
+      const contents = popup?.browserWindow?.webContents;
+      if (contents && !contents.isDestroyed()) contents.openDevTools({ mode: 'detach' });
+    });
+  }
 }
 
 async function loadExtensionFromPath(extPath) {
@@ -396,9 +514,10 @@ function extractExtensionId(input) {
 
 async function downloadCrx(extensionId) {
   const https = require('node:https');
-  const url = `https://update.googleapis.com/service/update2/crx?response=redirect&prodversion=130.0.0.0&acceptformat=crx2,crx3&x=id%3D${extensionId}%26uc`;
+  const chromeVersion = process.versions.chrome || '142.0.0.0';
+  const url = `https://update.googleapis.com/service/update2/crx?response=redirect&prodversion=${chromeVersion}&acceptformat=crx2,crx3&x=id%3D${extensionId}%26uc`;
   return new Promise((resolve, reject) => {
-    const headers = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36' };
+    const headers = { 'User-Agent': `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeVersion} Safari/537.36` };
     https.get(url, { headers }, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
         https.get(res.headers.location, { headers }, (res2) => {
@@ -675,7 +794,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('settings:get', () => publicSettings());
-  ipcMain.handle('extensions:list', () => loadedExtensions);
+  ipcMain.handle('extensions:list', () => extensionsWithActionState());
 
   ipcMain.handle('theme:save', (_event, input) => {
     const theme = updateTheme(input);
@@ -764,45 +883,32 @@ function registerIpc() {
 
   ipcMain.handle('extensions:open-popup', (_event, payload) => {
     if (!payload || typeof payload.extensionId !== 'string') return false;
-    const extension = loadedExtensions.find((item) => item.id === payload.extensionId);
-    if (!extension) return false;
+    if (!loadedExtensions.some((item) => item.id === payload.extensionId)) return false;
+    const browserAction = chromeExtensions?.api?.browserAction;
+    const activeContents = tabs?.active?.view?.webContents;
+    if (!browserAction || !activeContents || activeContents.isDestroyed()) return false;
 
-    // Manifest lesen, um den Popup-Pfad zu finden
-    let popupPath = null;
+    const rect = payload.anchorRect || {};
+    const anchorRect = {
+      x: Number(rect.x) || 0,
+      y: Number(rect.y) || 0,
+      width: Number(rect.width) || 32,
+      height: Number(rect.height) || 32
+    };
+
     try {
-      const manifest = JSON.parse(fs.readFileSync(path.join(extension.path, 'manifest.json'), 'utf8'));
-      popupPath = manifest?.action?.default_popup || manifest?.browser_action?.default_popup || null;
-    } catch {}
-
-    if (!popupPath) return false;
-
-    const popupUrl = path.join(extension.path, popupPath);
-    if (!fs.existsSync(popupUrl)) return false;
-
-    const popupWindow = new BrowserWindow({
-      width: 400,
-      height: 600,
-      show: false,
-      frame: true,
-      resizable: true,
-      alwaysOnTop: true,
-      skipTaskbar: false,
-      webPreferences: {
-        preload: path.join(__dirname, '..', '..', 'node_modules', 'electron-chrome-extensions', 'dist', 'chrome-extension-api.preload.js'),
-        contextIsolation: true,
-        nodeIntegration: false,
-        sandbox: true,
-        session: session.defaultSession
-      }
-    });
-
-    popupWindow.loadFile(popupUrl);
-    popupWindow.once('ready-to-show', () => {
-      popupWindow.show();
-      popupWindow.focus();
-      popupWindow.setAlwaysOnTop(true, 'screen-saver');
-    });
-    return true;
+      // Echtes Erweiterungs-Popup (inkl. chrome.*-APIs) oder chrome.action.onClicked.
+      browserAction.activateClick({
+        eventType: 'click',
+        extensionId: payload.extensionId,
+        tabId: activeContents.id,
+        anchorRect
+      });
+      return true;
+    } catch (error) {
+      console.warn('[extensions] Popup fehlgeschlagen:', error.message);
+      return false;
+    }
   });
 
   ipcMain.handle('extensions:remove', (_event, id) => {
@@ -979,6 +1085,8 @@ if (!gotSingleInstanceLock) {
 
     settings = loadSettings();
     hotkeys = compileHotkeys(settings.hotkeys);
+    // Muss vor dem Laden der Erweiterungen eingerichtet sein.
+    setupChromeExtensions();
     await loadExtensions(settings.extensions);
 
     if (settings?.privacy?.adblock) {
@@ -1067,8 +1175,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  windowClosing = true;
   if (!tabs) return;
   for (const tab of tabs.tabs.values()) {
-    if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
+    if (tab.view && !tab.view.webContents.isDestroyed()) tab.view.webContents.close();
   }
 });

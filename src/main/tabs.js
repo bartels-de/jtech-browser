@@ -7,7 +7,7 @@ const { WebContentsView } = require('electron');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { Menu, clipboard } = require('electron');
+const { Menu, MenuItem, clipboard } = require('electron');
 
 // Der Cursor-Effekt wird als Quelltext in Webseiten und die Startseite injiziert.
 const CURSOR_FX_SOURCE = (() => {
@@ -25,7 +25,7 @@ class TabManager {
    * @param {(state: object) => void} deps.onState
    * @param {(input: object) => boolean} deps.onInput
    */
-  constructor(window, { onState, onInput, getTheme, getSearch, getBangs, getUserName, getShortcuts, onFindResult, onNavigate, getZoomFactor, setZoomFactor }) {
+  constructor(window, { onState, onInput, getTheme, getSearch, getBangs, getUserName, getShortcuts, onFindResult, onNavigate, getZoomFactor, setZoomFactor, onViewCreated, onTabActivated, getContextMenuItems }) {
     this.window = window;
     this.onState = onState;
     this.onInput = onInput;
@@ -38,6 +38,10 @@ class TabManager {
     this.onNavigate = typeof onNavigate === 'function' ? onNavigate : () => {};
     this.getZoomFactor = typeof getZoomFactor === 'function' ? getZoomFactor : () => 1;
     this.setZoomFactor = typeof setZoomFactor === 'function' ? setZoomFactor : () => 1;
+    // Hooks für die Chrome-Erweiterungs-API (electron-chrome-extensions).
+    this.onViewCreated = typeof onViewCreated === 'function' ? onViewCreated : () => {};
+    this.onTabActivated = typeof onTabActivated === 'function' ? onTabActivated : () => {};
+    this.getContextMenuItems = typeof getContextMenuItems === 'function' ? getContextMenuItems : () => [];
 
     /** @type {Map<string, object>} */
     this.tabs = new Map();
@@ -116,6 +120,7 @@ class TabManager {
     tab.sleeping = false;
 
     const contents = view.webContents;
+    this.onViewCreated(contents);
     view.setBackgroundColor('#0b0d12');
     contents.setZoomFactor(tab.zoom);
 
@@ -213,11 +218,11 @@ class TabManager {
     });
 
     contents.on('will-navigate', (event, targetUrl) => {
-      if (!/^(https?|jtech):/i.test(targetUrl)) event.preventDefault();
+      if (!/^(https?|jtech|chrome-extension):/i.test(targetUrl)) event.preventDefault();
     });
 
     contents.setWindowOpenHandler(({ url: target }) => {
-      if (/^https?:\/\//i.test(target)) {
+      if (/^(https?|chrome-extension):\/\//i.test(target)) {
         this.create({ url: target, activate: true });
       }
       return { action: 'deny' };
@@ -236,6 +241,8 @@ class TabManager {
     });
 
     contents.on('destroyed', () => {
+      // Bewusst entfernte Views (Schlafen, Schließen) lassen den Tab bestehen.
+      if (tab.view !== view) return;
       this.tabs.delete(tab.id);
       if (this.activeId === tab.id) this.activeId = null;
     });
@@ -274,6 +281,7 @@ class TabManager {
     if (this.splitMode && (id === this.splitLeftId || id === this.splitRightId)) {
       this.activeId = id;
       if (tab.view && !this.overlayOpen) tab.view.webContents.focus();
+      if (tab.view) this.onTabActivated(tab.view.webContents);
       this.emit();
       return;
     }
@@ -293,6 +301,7 @@ class TabManager {
       tab.view.webContents.focus();
     }
     this.activeId = id;
+    if (tab.view) this.onTabActivated(tab.view.webContents);
 
     if (!tab.loading) this.syncNavigationState(tab);
     this.emit();
@@ -314,14 +323,15 @@ class TabManager {
       this.closedHistory = this.closedHistory.slice(-25);
     }
 
-    if (tab.view && this.window.contentView.children.includes(tab.view)) {
-      this.window.contentView.removeChildView(tab.view);
-    }
-    if (tab.view && !tab.view.webContents.isDestroyed()) {
-      tab.view.webContents.close();
-    }
-    this.tabs.delete(id);
+    const view = tab.view;
     tab.view = null;
+    this.tabs.delete(id);
+    if (view && this.window.contentView.children.includes(view)) {
+      this.window.contentView.removeChildView(view);
+    }
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.close();
+    }
 
     if (this.tabs.size === 0) {
       this.activeId = null;
@@ -335,6 +345,25 @@ class TabManager {
     } else {
       this.emit();
     }
+  }
+
+  /** Tab zu einem WebContents finden (für die Erweiterungs-API). */
+  findByContents(contents) {
+    if (!contents) return null;
+    for (const tab of this.tabs.values()) {
+      if (tab.view && tab.view.webContents === contents) return tab;
+    }
+    return null;
+  }
+
+  activateByContents(contents) {
+    const tab = this.findByContents(contents);
+    if (tab && tab.id !== this.activeId) this.activate(tab.id);
+  }
+
+  closeByContents(contents) {
+    const tab = this.findByContents(contents);
+    if (tab) this.close(tab.id);
   }
 
   reopenClosed() {
@@ -414,12 +443,13 @@ class TabManager {
     if (!tab || tab.sleeping || this.activeId === id) return;
     if (!tab.view) return;
 
-    if (this.window.contentView.children.includes(tab.view)) {
-      this.window.contentView.removeChildView(tab.view);
-    }
-    if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
+    const view = tab.view;
     tab.view = null;
     tab.sleeping = true;
+    if (this.window.contentView.children.includes(view)) {
+      this.window.contentView.removeChildView(view);
+    }
+    if (!view.webContents.isDestroyed()) view.webContents.close();
     tab.audible = false;
     this.emit();
   }
@@ -732,6 +762,15 @@ class TabManager {
     );
 
     const menu = Menu.buildFromTemplate(template);
+
+    // Einträge von Erweiterungen (chrome.contextMenus) oben einfügen.
+    let extensionItems = [];
+    try { extensionItems = this.getContextMenuItems(contents, params) || []; } catch { extensionItems = []; }
+    if (extensionItems.length) {
+      extensionItems.forEach((item, index) => menu.insert(index, item));
+      menu.insert(extensionItems.length, new MenuItem({ type: 'separator' }));
+    }
+
     menu.popup({ window: this.window });
   }
 
