@@ -13,6 +13,7 @@ const els = {
   sidebarTabs: document.getElementById('sidebar-tabs'),
   sidebarResize: document.getElementById('sidebar-resize'),
   sidebarHome: document.getElementById('sidebar-home'),
+  sidebarNewTab: document.getElementById('sidebar-new-tab'),
   sidebarFavorites: document.getElementById('sidebar-favorites'),
   sidebarProfile: document.getElementById('sidebar-profile'),
   sidebarAvatar: document.getElementById('sidebar-avatar'),
@@ -2906,6 +2907,7 @@ function openNewTab() {
 
 els.newTab.addEventListener('click', openNewTab);
 if (els.sidebarHome) els.sidebarHome.addEventListener('click', openNewTab);
+if (els.sidebarNewTab) els.sidebarNewTab.addEventListener('click', openNewTab);
 if (els.tabSearchOpen) els.tabSearchOpen.addEventListener('click', openTabSearch);
 els.sidebarSettings.addEventListener('click', () => openSettings());
 
@@ -2963,7 +2965,10 @@ function renderOmniboxSuggestions() {
     return true;
   }).slice(0, 10);
 
-  if (!unique.length) { panel.hidden = true; return; }
+  if (!unique.length) {
+    panel.hidden = true;
+    return;
+  }
   panel.innerHTML = '';
   for (const item of unique) {
     const row = document.createElement('button');
@@ -2976,15 +2981,21 @@ function renderOmniboxSuggestions() {
       api.navigate(item.url);
       els.omnibox.blur();
       panel.hidden = true;
+      api.toggleWebview(true);
     });
     panel.appendChild(row);
   }
+  const wasShown = !panel.hidden;
   panel.hidden = false;
+  if (!wasShown) {
+    api.toggleWebview(false);
+  }
 }
 
 els.omnibox.addEventListener('blur', () => {
   setTimeout(() => {
     if (els.omniboxSuggestions) els.omniboxSuggestions.hidden = true;
+    api.toggleWebview(true);
     if (els.commandPalette.hidden) return;
     if (els.commandPalette.contains(document.activeElement)) return;
     closeCommandPalette({ restoreFocus: false });
@@ -3025,12 +3036,34 @@ els.omnibox.addEventListener('input', () => {
     els.commandPaletteInput.value = value.slice(1).trim();
     commandPaletteSelection = 0;
     renderCommandPalette();
-  } else if (!els.commandPalette.hidden && value === '') {
-    // keep palette open only if user cleared
+    els.omniboxSuggestions.hidden = true;
+    api.toggleWebview(true);
+  } else {
+    if (!els.commandPalette.hidden) closeCommandPalette({ restoreFocus: false });
+    renderOmniboxSuggestions();
+    const panel = els.omniboxSuggestions;
+    if (panel && !panel.hidden) {
+      api.toggleWebview(false);
+    } else {
+      api.toggleWebview(true);
+    }
   }
 });
 
 els.omnibox.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const value = els.omnibox.value.trim();
+    if (!value) {
+      api.reload();
+      els.omnibox.blur();
+      return;
+    }
+    els.omniboxForm.requestSubmit();
+    els.omniboxSuggestions.hidden = true;
+    api.toggleWebview(true);
+    return;
+  }
   if (event.key === 'Escape') {
     if (!els.commandPalette.hidden) {
       event.preventDefault();

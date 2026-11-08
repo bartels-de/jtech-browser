@@ -190,6 +190,43 @@
 
       .search input::placeholder { color: var(--text-faint); }
 
+.search-suggestions {
+  position: absolute;
+  top: calc(50% + 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 86vw);
+  max-height: 320px;
+  overflow: auto;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+}
+.search-suggestions[hidden] { display: none; }
+.search-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.search-suggestion:hover { background: rgba(255,255,255,0.06); }
+.search-suggestion__type { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-faint); width: 70px; }
+.search-suggestion__title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-suggestion__url { font-size: 11px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+
       kbd {
         flex: 0 0 auto;
         padding: 4px 8px;
@@ -259,6 +296,7 @@
         />
         <kbd>Enter</kbd>
       </form>
+     <div class="search-suggestions" id="search-suggestions" hidden></div>
 
       <div class="shortcuts" id="shortcuts"></div>
     </main>
@@ -353,6 +391,53 @@
       });
 
       document.getElementById('q').focus();
+
+       // Vorschläge für die Suche
+       const searchInput = document.getElementById('q');
+       const suggestionsPanel = document.getElementById('search-suggestions');
+       const history = window.__JTECH_HISTORY__ || [];
+
+       function renderSuggestions() {
+         const query = (searchInput.value || '').trim().toLowerCase();
+         if (query.startsWith('!')) { suggestionsPanel.hidden = true; return; }
+         const items = [];
+         for (const h of history) {
+           if (!query || (h.title || '').toLowerCase().includes(query) || (h.url || '').toLowerCase().includes(query)) {
+             items.push({ type: 'History', title: h.title || h.url, url: h.url });
+           }
+         }
+         const seen = new Set();
+         const unique = items.filter((i) => {
+           if (!i.url || seen.has(i.url)) return false;
+           seen.add(i.url);
+           return true;
+         }).slice(0, 8);
+
+         if (!unique.length) { suggestionsPanel.hidden = true; return; }
+         suggestionsPanel.innerHTML = '';
+         for (const item of unique) {
+           const row = document.createElement('button');
+           row.type = 'button';
+           row.className = 'search-suggestion';
+           row.innerHTML = '<span class="search-suggestion__type">' + escapeHtml(item.type) + '</span><span class="search-suggestion__title">' + escapeHtml(item.title) + '</span><span class="search-suggestion__url">' + escapeHtml(item.url) + '</span>';
+           row.addEventListener('mousedown', (e) => {
+             e.preventDefault();
+             window.location.href = item.url;
+           });
+           suggestionsPanel.appendChild(row);
+         }
+         suggestionsPanel.hidden = false;
+       }
+
+       searchInput.addEventListener('input', renderSuggestions);
+       searchInput.addEventListener('blur', () => {
+         setTimeout(() => { suggestionsPanel.hidden = true; }, 150);
+       });
+       searchInput.addEventListener('focus', renderSuggestions);
+
+       function escapeHtml(value) {
+         return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+       }
     </script>
   </body>
 </html>
