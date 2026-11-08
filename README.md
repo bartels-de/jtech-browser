@@ -112,8 +112,9 @@ Settings are stored in:
 %APPDATA%\JTech Browser\settings.json
 ```
 
-The same folder also holds `session.json`, `crash.log`, the ad blocker cache and
-installed extensions (`extensions\`). An old `%APPDATA%\Pulse\settings.json` is
+The same folder also holds `history.json` (browsing history, saved in batches),
+`session.json`, `crash.log`, the ad blocker cache and installed extensions
+(`extensions\`). An old `%APPDATA%\Pulse\settings.json` is
 migrated on first start. All values are validated in the main process before
 they are saved; the file is written atomically, and a corrupt file is backed up.
 
@@ -156,10 +157,9 @@ tests/              Hotkeys, settings, theme validation (node:test)
 
 1. **Hotkey editor**: rebind keys in settings, with conflict detection
 2. **Extensions**: integrate `electron-chrome-extensions` (popups, toolbar icons, chrome.* APIs)
-3. **History**: move to a separate file and save in batches
-4. **Auto-update** (electron-updater is built in but still needs an update server)
-5. **Sidebar** with quick access (Discord, Twitch, …)
-6. Force dark mode, resource limiter
+3. **Auto-update** (electron-updater is built in but still needs an update server)
+4. **Sidebar** with quick access (Discord, Twitch, …)
+5. Force dark mode, resource limiter
 
 ## License
 

@@ -28,7 +28,8 @@ const {
   normalizeExtensions,
   getZoomFactor,
   setZoomFactor,
-  buildSearchUrl
+  buildSearchUrl,
+  flushHistory
 } = require('./config');
 const { compileHotkeys, matchHotkey } = require('./shortcuts');
 const { TabManager } = require('./tabs');
@@ -109,8 +110,8 @@ function createWindow() {
     onNavigate: (tab) => {
       if (!tab?.url || !/^https?:\/\//i.test(tab.url)) return;
       const { addHistoryEntry } = require('./config');
-      addHistoryEntry({ url: tab.url, title: tab.title });
-      if (chrome && !chrome.isDestroyed()) chrome.send('history:update', loadSettings().history);
+      const history = addHistoryEntry({ url: tab.url, title: tab.title });
+      if (chrome && !chrome.isDestroyed()) chrome.send('history:update', history);
     },
     getZoomFactor,
     setZoomFactor,
@@ -144,6 +145,7 @@ function createWindow() {
   window.on('resize', () => tabs.layout(window.getContentBounds()));
   window.on('close', () => {
     windowClosing = true;
+    flushHistory();
     if (tabs && settings?.ui?.restoreSession) {
       try {
         fs.writeFileSync(sessionPath(), JSON.stringify(tabs.getState()), 'utf8');
@@ -1176,6 +1178,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   windowClosing = true;
+  flushHistory();
   if (!tabs) return;
   for (const tab of tabs.tabs.values()) {
     if (tab.view && !tab.view.webContents.isDestroyed()) tab.view.webContents.close();
