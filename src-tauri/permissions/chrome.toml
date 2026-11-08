@@ -1,0 +1,31 @@
+# Permission for the local chrome UI (src/renderer/index.html).
+# Granted only to the "chrome" webview in capabilities/default.json.
+# Tab webviews (remote pages and the start page) get no IPC access.
+
+[[permission]]
+identifier = "chrome-commands"
+description = "Lets the chrome UI control tabs, the window and settings."
+commands.allow = [
+  "chrome_ready",
+  "new_tab",
+  "close_tab",
+  "activate_tab",
+  "navigate",
+  "go_back",
+  "go_forward",
+  "reload_tab",
+  "stop_tab",
+  "print_tab",
+  "focus_content",
+  "window_minimize",
+  "window_toggle_maximize",
+  "window_close",
+  "window_start_dragging",
+  "set_layout",
+  "set_dock",
+  "set_overlay",
+  "toggle_webview",
+  "get_settings",
+  "save_settings",
+  "save_theme",
+]

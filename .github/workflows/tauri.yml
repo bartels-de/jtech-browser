@@ -1,0 +1,60 @@
+# Builds the Tauri version of JTech Browser (src-tauri) on Windows and
+# uploads the NSIS installer as a workflow artifact. Nothing is released.
+
+name: Tauri build
+
+on:
+  push:
+    branches:
+      - 'tauri/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tauri-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Generate app icons
+        run: npx --yes @tauri-apps/cli@2.12 icon src/renderer/assets/logo-256.png
+
+      - name: Build installer
+        run: npx --yes @tauri-apps/cli@2.12 build --bundles nsis --ci
+        env:
+          CARGO_TERM_COLOR: always
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: jtech-browser-tauri-nsis
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload Cargo.lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock
+          path: src-tauri/Cargo.lock
+
+      - name: Run Rust tests
+        working-directory: src-tauri
+        run: cargo test --bins
+        env:
+          CARGO_TERM_COLOR: always

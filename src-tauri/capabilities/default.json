@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "chrome-ui",
+  "description": "The local chrome UI may listen to events and call the app commands. Tab webviews are not listed and get no IPC access.",
+  "local": true,
+  "webviews": ["chrome"],
+  "permissions": ["core:event:default", "chrome-commands"]
+}
