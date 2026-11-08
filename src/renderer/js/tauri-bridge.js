@@ -15,6 +15,20 @@
   const { invoke } = tauri.core;
   const { listen } = tauri.event;
 
+  /* ------------------------------------------------- Tauri-only UI tweaks */
+
+  // Chrome extensions are not supported in the Tauri build: hide the
+  // toolbar menu and the settings section. Electron never runs this file's
+  // code, so it keeps them.
+  document.documentElement.classList.add('is-tauri');
+  const tauriStyle = document.createElement('style');
+  tauriStyle.textContent = [
+    'html.is-tauri #extensions-menu,',
+    'html.is-tauri .settings__nav-btn[data-panel="extensions"],',
+    'html.is-tauri .settings__panel[data-panel="extensions"] { display: none !important; }'
+  ].join('\n');
+  document.head.appendChild(tauriStyle);
+
   /* ------------------------------------------------------------- Events */
 
   // Events from Rust, all delivered to local subscribers. The last payload
