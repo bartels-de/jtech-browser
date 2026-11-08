@@ -169,7 +169,7 @@
     createTabGroup: () => invoke('get_settings'),
     updateTabGroup: () => invoke('get_settings'),
     removeTabGroup: () => invoke('get_settings'),
-    zoom: noop,
+    zoom: (action, value) => send('zoom_tab', { action: String(action ?? ''), value: Number.isFinite(value) ? value : null }),
     findInPage: noop,
     stopFind: noop,
 
@@ -225,17 +225,22 @@
     installUpdate: resolved(false),
     resourceAction: resolved(null),
 
-    // Favorites, bookmarks etc. are not ported yet: return current settings.
-    addFavorite: () => invoke('get_settings'),
-    removeFavorite: () => invoke('get_settings'),
-    addSaved: () => invoke('get_settings'),
-    removeSaved: () => invoke('get_settings'),
-    addShortcut: () => invoke('get_settings'),
-    removeShortcut: () => invoke('get_settings'),
-    addBookmark: () => invoke('get_settings'),
-    removeBookmark: () => invoke('get_settings'),
-    addBookmarkFolder: () => invoke('get_settings'),
-    removeBookmarkFolder: () => invoke('get_settings'),
+    // Favorites, saved pages, start page shortcuts and bookmarks. Rust
+    // returns the new settings (and also sends settings:update).
+    addFavorite: (entry) => invoke('favorites_add', { entry: entry ?? {} }).then(keepTypedValues),
+    removeFavorite: (id) => invoke('favorites_remove', { id: String(id ?? '') }).then(keepTypedValues),
+    addSaved: (entry) => invoke('saved_add', { entry: entry ?? {} }).then(keepTypedValues),
+    removeSaved: (id) => invoke('saved_remove', { id: String(id ?? '') }).then(keepTypedValues),
+    addShortcut: (entry) => invoke('shortcuts_add', { entry: entry ?? {} }).then(keepTypedValues),
+    removeShortcut: (id) => invoke('shortcuts_remove', { id: String(id ?? '') }).then(keepTypedValues),
+    addBookmark: (entry) => invoke('bookmarks_add', { entry: entry ?? {} }).then(keepTypedValues),
+    removeBookmark: (id) => invoke('bookmarks_remove', { id: String(id ?? '') }).then(keepTypedValues),
+    addBookmarkFolder: (name, parentId) =>
+      invoke('bookmarks_add_folder', {
+        name: String(name ?? ''),
+        parentId: typeof parentId === 'string' ? parentId : null
+      }).then(keepTypedValues),
+    removeBookmarkFolder: (id) => invoke('bookmarks_remove_folder', { id: String(id ?? '') }).then(keepTypedValues),
 
     onState: (callback) => subscribe('tabs:state', callback),
     onWindowState: (callback) => subscribe('window:state', callback),

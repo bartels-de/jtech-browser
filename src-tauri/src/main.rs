@@ -81,6 +81,17 @@ fn main() {
             commands::save_settings,
             commands::save_theme,
             commands::get_update_status,
+            commands::zoom_tab,
+            commands::favorites_add,
+            commands::favorites_remove,
+            commands::saved_add,
+            commands::saved_remove,
+            commands::shortcuts_add,
+            commands::shortcuts_remove,
+            commands::bookmarks_add,
+            commands::bookmarks_remove,
+            commands::bookmarks_add_folder,
+            commands::bookmarks_remove_folder,
         ])
         .setup(|app| {
             let config_dir = app.path().app_config_dir()?;

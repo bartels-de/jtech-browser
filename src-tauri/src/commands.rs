@@ -8,7 +8,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
 use crate::input::{resolve_input, SearchConfig};
-use crate::settings::SettingsStore;
+use crate::settings::{Collection, SettingsStore};
 use crate::tabs::{self, emit_chrome, WINDOW_LABEL};
 
 type CmdResult<T = ()> = Result<T, String>;
@@ -249,4 +249,82 @@ pub async fn get_update_status(app: AppHandle) -> CmdResult<Value> {
         "unsupportedLabel": "Noch nicht verfügbar",
         "unsupportedReason": "Automatische Updates folgen in einer späteren Version. Neue Versionen bitte vorerst manuell installieren."
     }))
+}
+
+/* ------------------------------------------------------------------- Zoom */
+
+/// `zoom(action, value)`: "in", "out", "reset" or "set" for the active tab.
+#[tauri::command]
+pub async fn zoom_tab(app: AppHandle, action: String, value: Option<f64>) -> CmdResult {
+    tabs::zoom(&app, &action, value)
+}
+
+/* -------------------------------------- Favorites, saved pages, bookmarks */
+
+/// Saves a list change and tells the UI (same as applySettingsUpdate).
+fn publish(app: &AppHandle, settings: Value) -> CmdResult<Value> {
+    emit_chrome(app, "settings:update", settings.clone());
+    Ok(settings)
+}
+
+#[tauri::command]
+pub async fn favorites_add(app: AppHandle, entry: Value) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().add_to(Collection::Favorites, &entry);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn favorites_remove(app: AppHandle, id: String) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().remove_from(Collection::Favorites, &id);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn saved_add(app: AppHandle, entry: Value) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().add_to(Collection::Saved, &entry);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn saved_remove(app: AppHandle, id: String) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().remove_from(Collection::Saved, &id);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn shortcuts_add(app: AppHandle, entry: Value) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().add_to(Collection::Shortcuts, &entry);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn shortcuts_remove(app: AppHandle, id: String) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().remove_from(Collection::Shortcuts, &id);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn bookmarks_add(app: AppHandle, entry: Value) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().add_bookmark(&entry);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn bookmarks_remove(app: AppHandle, id: String) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().remove_bookmark(&id);
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn bookmarks_add_folder(app: AppHandle, name: String, parent_id: Option<String>) -> CmdResult<Value> {
+    let next = app
+        .state::<SettingsStore>()
+        .add_bookmark_folder(&name, parent_id.as_deref());
+    publish(&app, next)
+}
+
+#[tauri::command]
+pub async fn bookmarks_remove_folder(app: AppHandle, id: String) -> CmdResult<Value> {
+    let next = app.state::<SettingsStore>().remove_bookmark_folder(&id);
+    publish(&app, next)
 }

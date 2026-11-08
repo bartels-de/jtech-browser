@@ -234,10 +234,40 @@ fn normalize_ui(input: &Value, base: &Value) -> Value {
     ui
 }
 
+/* ------------------------------------------- Favorites, saved, bookmarks */
+
+const MAX_FAVORITES: usize = 100;
+const MAX_SAVED: usize = 200;
+const MAX_SHORTCUTS: usize = 30;
+const MAX_BOOKMARKS: usize = 500;
+const MAX_BOOKMARK_FOLDERS: usize = 200;
+
+fn new_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+fn truncate_chars(text: &str, max: usize) -> String {
+    text.chars().take(max).collect()
+}
+
 /// Port of `normalizeFavoriteUrl`: only http(s) URLs, normalized.
 pub fn normalize_favorite_url(value: Option<&Value>) -> Option<String> {
     let url = url::Url::parse(value?.as_str()?.trim()).ok()?;
     matches!(url.scheme(), "http" | "https").then(|| url.to_string())
+}
+
+/// Port of `normalizeFavicon`: http(s) or data:image URLs, else "".
+pub fn normalize_favicon(value: Option<&Value>) -> String {
+    let Some(text) = value.and_then(Value::as_str) else {
+        return String::new();
+    };
+    let trimmed = text.trim();
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("data:image/") {
+        trimmed.to_string()
+    } else {
+        String::new()
+    }
 }
 
 /// Port of `favoriteTitle`: the given title (max 120 chars) or the host
@@ -245,15 +275,319 @@ pub fn normalize_favorite_url(value: Option<&Value>) -> Option<String> {
 pub fn favorite_title(value: Option<&Value>, url: &str) -> String {
     let title = value.and_then(Value::as_str).map(str::trim).unwrap_or("");
     if !title.is_empty() {
-        return title.chars().take(120).collect();
+        return truncate_chars(title, 120);
     }
     match url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_string)) {
         Some(host) => {
-            let stripped = if host.to_ascii_lowercase().starts_with("www.") { &host[4..] } else { &host[..] };
+            let lower = host.to_ascii_lowercase();
+            let stripped = if lower.starts_with("www.") { &host[4..] } else { &host[..] };
             if stripped.is_empty() { url.to_string() } else { stripped.to_string() }
         }
         None => url.to_string(),
     }
+}
+
+fn entry_id(entry: &Value) -> String {
+    entry
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(new_id)
+}
+
+/// Port of `normalizeFavorites` (also used for saved pages and shortcuts):
+/// valid http(s) URLs only, no duplicates, `{ id, title, url, favicon }`.
+pub fn normalize_favorites(input: &Value, max: usize) -> Value {
+    let Some(items) = input.as_array() else {
+        return json!([]);
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    for entry in items.iter().filter(|e| e.is_object()) {
+        let Some(url) = normalize_favorite_url(entry.get("url")) else {
+            continue;
+        };
+        if !seen.insert(url.clone()) {
+            continue;
+        }
+        result.push(json!({
+            "id": entry_id(entry),
+            "title": favorite_title(entry.get("title"), &url),
+            "url": url,
+            "favicon": normalize_favicon(entry.get("favicon")),
+        }));
+        if result.len() >= max {
+            break;
+        }
+    }
+    Value::Array(result)
+}
+
+fn normalize_tags(value: Option<&Value>) -> Option<Value> {
+    let items = value?.as_array()?;
+    let tags: Vec<Value> = items
+        .iter()
+        .map(|tag| match tag {
+            Value::String(text) => text.clone(),
+            Value::Null => "null".to_string(),
+            other => other.to_string(),
+        })
+        .map(|tag| truncate_chars(tag.trim(), 30))
+        .filter(|tag| !tag.is_empty())
+        .take(10)
+        .map(Value::String)
+        .collect();
+    Some(Value::Array(tags))
+}
+
+/// Port of `normalizeBookmarks`.
+pub fn normalize_bookmarks(input: &Value) -> Value {
+    let Some(items) = input.as_array() else {
+        return json!([]);
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    for entry in items.iter().filter(|e| e.is_object()) {
+        let Some(url) = normalize_favorite_url(entry.get("url")) else {
+            continue;
+        };
+        if !seen.insert(url.clone()) {
+            continue;
+        }
+        let created = entry
+            .get("createdAt")
+            .and_then(Value::as_f64)
+            .filter(|n| n.is_finite())
+            .map(|n| json!(n))
+            .unwrap_or_else(|| json!(now_millis() as u64));
+        result.push(json!({
+            "id": entry_id(entry),
+            "title": favorite_title(entry.get("title"), &url),
+            "url": url,
+            "favicon": normalize_favicon(entry.get("favicon")),
+            "folderId": entry.get("folderId").and_then(Value::as_str),
+            "tags": normalize_tags(entry.get("tags")).unwrap_or_else(|| json!([])),
+            "createdAt": created,
+        }));
+        if result.len() >= MAX_BOOKMARKS {
+            break;
+        }
+    }
+    Value::Array(result)
+}
+
+/// Port of `normalizeBookmarkFolders`.
+pub fn normalize_bookmark_folders(input: &Value) -> Value {
+    let Some(items) = input.as_array() else {
+        return json!([]);
+    };
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    for entry in items.iter().filter(|e| e.is_object()) {
+        let name = truncate_chars(entry.get("name").and_then(Value::as_str).unwrap_or("").trim(), 60);
+        if name.is_empty() {
+            continue;
+        }
+        let id = entry_id(entry);
+        if !seen.insert(id.clone()) {
+            continue;
+        }
+        result.push(json!({
+            "id": id,
+            "name": name,
+            "parentId": entry.get("parentId").and_then(Value::as_str),
+        }));
+        if result.len() >= MAX_BOOKMARK_FOLDERS {
+            break;
+        }
+    }
+    Value::Array(result)
+}
+
+/// Rounds and clamps a zoom factor like config.js (0.25..5, two decimals).
+pub fn clamp_zoom(factor: f64) -> f64 {
+    ((factor * 100.0).round() / 100.0).clamp(0.25, 5.0)
+}
+
+/// Port of `normalizeZoom`: `{ host: factor }`, without 100 % entries.
+pub fn normalize_zoom(input: &Value) -> Value {
+    let Some(map) = input.as_object() else {
+        return json!({});
+    };
+    let mut result = Map::new();
+    for (host, value) in map {
+        if host.is_empty() || result.len() >= 500 {
+            break;
+        }
+        let factor = match value {
+            Value::Number(n) => n.as_f64(),
+            Value::String(text) => text.trim().parse::<f64>().ok(),
+            _ => None,
+        };
+        let Some(factor) = factor.filter(|f| f.is_finite()) else {
+            continue;
+        };
+        let clamped = clamp_zoom(factor);
+        if (clamped - 1.0).abs() < 0.01 {
+            continue;
+        }
+        result.insert(host.trim().to_lowercase(), json!(clamped));
+    }
+    Value::Object(result)
+}
+
+/// Lower-case host of an http(s) URL (the key of `settings.zoom`).
+pub fn zoom_host(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return None;
+    }
+    parsed.host_str().map(str::to_lowercase)
+}
+
+/// Which list an entry is added to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Collection {
+    Favorites,
+    Saved,
+    Shortcuts,
+}
+
+impl Collection {
+    fn key(self) -> &'static str {
+        match self {
+            Collection::Favorites => "favorites",
+            Collection::Saved => "saved",
+            Collection::Shortcuts => "shortcuts",
+        }
+    }
+
+    fn max(self) -> usize {
+        match self {
+            Collection::Favorites => MAX_FAVORITES,
+            Collection::Saved => MAX_SAVED,
+            Collection::Shortcuts => MAX_SHORTCUTS,
+        }
+    }
+}
+
+/// Port of `addFavorite` / `addSaved` / `addShortcut` on a list value.
+/// Existing URLs are updated, new favorites go last, saved pages and
+/// shortcuts first. Invalid URLs leave the list unchanged.
+pub fn add_to_collection(list: &Value, kind: Collection, entry: &Value) -> Value {
+    let Some(url) = normalize_favorite_url(entry.get("url")) else {
+        return list.clone();
+    };
+    let mut items = list.as_array().cloned().unwrap_or_default();
+    if let Some(existing) = items.iter_mut().find(|item| item.get("url").and_then(Value::as_str) == Some(url.as_str())) {
+        if entry.get("title").and_then(Value::as_str).is_some_and(|t| !t.is_empty()) {
+            existing["title"] = json!(favorite_title(entry.get("title"), &url));
+        }
+        if entry.get("favicon").and_then(Value::as_str).is_some_and(|f| !f.is_empty()) {
+            existing["favicon"] = json!(normalize_favicon(entry.get("favicon")));
+        }
+        return Value::Array(items);
+    }
+    let item = json!({
+        "id": new_id(),
+        "title": favorite_title(entry.get("title"), &url),
+        "url": url,
+        "favicon": normalize_favicon(entry.get("favicon")),
+    });
+    if kind == Collection::Favorites {
+        items.push(item);
+    } else {
+        items.insert(0, item);
+    }
+    normalize_favorites(&Value::Array(items), kind.max())
+}
+
+/// Removes the entry with `id` from a list.
+pub fn remove_by_id(list: &Value, id: &str) -> Value {
+    let items = list.as_array().cloned().unwrap_or_default();
+    Value::Array(
+        items
+            .into_iter()
+            .filter(|item| item.get("id").and_then(Value::as_str) != Some(id))
+            .collect(),
+    )
+}
+
+/// Port of `addBookmark` on the bookmark list.
+pub fn add_bookmark(list: &Value, entry: &Value) -> Value {
+    let Some(url) = normalize_favorite_url(entry.get("url")) else {
+        return list.clone();
+    };
+    let mut items = list.as_array().cloned().unwrap_or_default();
+    if let Some(existing) = items.iter_mut().find(|item| item.get("url").and_then(Value::as_str) == Some(url.as_str())) {
+        if entry.get("title").and_then(Value::as_str).is_some_and(|t| !t.is_empty()) {
+            existing["title"] = json!(favorite_title(entry.get("title"), &url));
+        }
+        if entry.get("favicon").and_then(Value::as_str).is_some_and(|f| !f.is_empty()) {
+            existing["favicon"] = json!(normalize_favicon(entry.get("favicon")));
+        }
+        if let Some(folder) = entry.get("folderId").and_then(Value::as_str).filter(|f| !f.is_empty()) {
+            existing["folderId"] = json!(folder);
+        }
+        if let Some(tags) = normalize_tags(entry.get("tags")) {
+            existing["tags"] = tags;
+        }
+        return Value::Array(items);
+    }
+    items.insert(
+        0,
+        json!({
+            "id": new_id(),
+            "title": favorite_title(entry.get("title"), &url),
+            "url": url,
+            "favicon": normalize_favicon(entry.get("favicon")),
+            "folderId": entry.get("folderId").and_then(Value::as_str),
+            "tags": normalize_tags(entry.get("tags")).unwrap_or_else(|| json!([])),
+            "createdAt": now_millis() as u64,
+        }),
+    );
+    normalize_bookmarks(&Value::Array(items))
+}
+
+/// Port of `removeBookmarkFolder`: drops the folder and its subfolders and
+/// moves their bookmarks to the root. Returns (bookmarks, folders).
+pub fn remove_bookmark_folder(bookmarks: &Value, folders: &Value, id: &str) -> (Value, Value) {
+    let folder_list = folders.as_array().cloned().unwrap_or_default();
+    let mut remove = std::collections::HashSet::from([id.to_string()]);
+    loop {
+        let before = remove.len();
+        for folder in &folder_list {
+            let parent = folder.get("parentId").and_then(Value::as_str);
+            let folder_id = folder.get("id").and_then(Value::as_str);
+            if let (Some(parent), Some(folder_id)) = (parent, folder_id) {
+                if remove.contains(parent) {
+                    remove.insert(folder_id.to_string());
+                }
+            }
+        }
+        if remove.len() == before {
+            break;
+        }
+    }
+    // Same as config.js: only bookmarks directly in the removed folder move.
+    let bookmarks = bookmarks
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|mut bookmark| {
+            if bookmark.get("folderId").and_then(Value::as_str) == Some(id) {
+                bookmark["folderId"] = Value::Null;
+            }
+            bookmark
+        })
+        .collect();
+    let folders = folder_list
+        .into_iter()
+        .filter(|f| !f.get("id").and_then(Value::as_str).is_some_and(|fid| remove.contains(fid)))
+        .collect();
+    (Value::Array(bookmarks), Value::Array(folders))
 }
 
 fn list_or_empty(value: Option<&Value>) -> Value {
@@ -299,6 +633,18 @@ fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     fs::rename(&tmp, path)
 }
 
+/// Lists with a config.js normalizer are normalized, others pass through.
+fn normalize_list(key: &str, list: &Value) -> Value {
+    match key {
+        "favorites" => normalize_favorites(list, MAX_FAVORITES),
+        "saved" => normalize_favorites(list, MAX_SAVED),
+        "shortcuts" => normalize_favorites(list, MAX_SHORTCUTS),
+        "bookmarks" => normalize_bookmarks(list),
+        "bookmarkFolders" => normalize_bookmark_folders(list),
+        _ => list.clone(),
+    }
+}
+
 /// Normalizes a freshly loaded settings file (port of `loadSettings`).
 fn normalize_loaded(stored: Value) -> Value {
     let defaults = defaults();
@@ -317,15 +663,14 @@ fn normalize_loaded(stored: Value) -> Value {
 
     for key in LIST_KEYS {
         let list = list_or_empty(map.get(*key));
-        map.insert((*key).into(), list);
+        map.insert((*key).into(), normalize_list(key, &list));
     }
     for key in OBJECT_KEYS {
         let value = coerce_like(&defaults[*key], &map[*key]);
         map.insert((*key).into(), value);
     }
-    if !map.get("zoom").is_some_and(Value::is_object) {
-        map.insert("zoom".into(), json!({}));
-    }
+    let zoom = normalize_zoom(map.get("zoom").unwrap_or(&Value::Null));
+    map.insert("zoom".into(), zoom);
 
     let theme = if theme_current {
         coerce_like(&defaults["theme"], &map["theme"])
@@ -453,7 +798,7 @@ impl SettingsStore {
                 }
                 for key in LIST_KEYS {
                     if let Some(list) = patch.get(*key).filter(|v| v.is_array()) {
-                        current[*key] = list.clone();
+                        current[*key] = normalize_list(key, list);
                     }
                 }
                 for key in OBJECT_KEYS {
@@ -463,7 +808,7 @@ impl SettingsStore {
                     }
                 }
                 if let Some(zoom) = patch.get("zoom").filter(|v| v.is_object()) {
-                    current["zoom"] = zoom.clone();
+                    current["zoom"] = normalize_zoom(zoom);
                 }
                 current.clone()
             };
@@ -473,6 +818,97 @@ impl SettingsStore {
             self.persist_value(&snapshot);
         }
         self.public()
+    }
+
+    /// Changes the full settings value, saves it and returns public settings.
+    fn modify(&self, f: impl FnOnce(&mut Value)) -> Value {
+        let snapshot = {
+            let mut current = self.lock();
+            f(&mut current);
+            current.clone()
+        };
+        self.persist_value(&snapshot);
+        self.public()
+    }
+
+    pub fn add_to(&self, kind: Collection, entry: &Value) -> Value {
+        self.modify(|current| {
+            let key = kind.key();
+            current[key] = add_to_collection(&current[key], kind, entry);
+        })
+    }
+
+    pub fn remove_from(&self, kind: Collection, id: &str) -> Value {
+        self.modify(|current| {
+            let key = kind.key();
+            current[key] = remove_by_id(&current[key], id);
+        })
+    }
+
+    pub fn add_bookmark(&self, entry: &Value) -> Value {
+        self.modify(|current| current["bookmarks"] = add_bookmark(&current["bookmarks"], entry))
+    }
+
+    pub fn remove_bookmark(&self, id: &str) -> Value {
+        self.modify(|current| current["bookmarks"] = remove_by_id(&current["bookmarks"], id))
+    }
+
+    /// Port of `addBookmarkFolder`.
+    pub fn add_bookmark_folder(&self, name: &str, parent_id: Option<&str>) -> Value {
+        let name = truncate_chars(name.trim(), 60);
+        if name.is_empty() {
+            return self.public();
+        }
+        self.modify(|current| {
+            let mut folders = current["bookmarkFolders"].as_array().cloned().unwrap_or_default();
+            folders.push(json!({ "id": new_id(), "name": name, "parentId": parent_id }));
+            current["bookmarkFolders"] = normalize_bookmark_folders(&Value::Array(folders));
+        })
+    }
+
+    pub fn remove_bookmark_folder(&self, id: &str) -> Value {
+        self.modify(|current| {
+            let (bookmarks, folders) = remove_bookmark_folder(&current["bookmarks"], &current["bookmarkFolders"], id);
+            current["bookmarks"] = bookmarks;
+            current["bookmarkFolders"] = folders;
+        })
+    }
+
+    /// Port of `getZoomFactor`: stored zoom for the URL's host, else 1.
+    pub fn zoom_for(&self, url: &str) -> f64 {
+        let Some(host) = zoom_host(url) else {
+            return 1.0;
+        };
+        self.lock()
+            .pointer("/zoom")
+            .and_then(|zoom| zoom.get(&host))
+            .and_then(Value::as_f64)
+            .filter(|f| f.is_finite() && *f > 0.0)
+            .unwrap_or(1.0)
+    }
+
+    /// Port of `setZoomFactor`: stores the zoom for the URL's host (100 %
+    /// removes the entry). Non-http(s) URLs are ignored.
+    pub fn set_zoom_for(&self, url: &str, factor: f64) {
+        let Some(host) = zoom_host(url) else {
+            return;
+        };
+        if !factor.is_finite() {
+            return;
+        }
+        let clamped = clamp_zoom(factor);
+        let snapshot = {
+            let mut current = self.lock();
+            let mut zoom = current.get("zoom").and_then(Value::as_object).cloned().unwrap_or_default();
+            if (clamped - 1.0).abs() < 0.01 {
+                zoom.remove(&host);
+            } else {
+                zoom.insert(host, json!(clamped));
+            }
+            current["zoom"] = normalize_zoom(&Value::Object(zoom));
+            current.clone()
+        };
+        self.persist_value(&snapshot);
     }
 
     /// Port of `updateTheme(input)`. Returns the stored theme.
@@ -517,5 +953,84 @@ mod tests {
         assert_eq!(settings["theme"]["accent"], "#7c6cff");
         assert_eq!(settings["theme"]["customCssChrome"], "a{}");
         assert_eq!(settings["search"]["engine"], "google");
+    }
+
+    #[test]
+    fn favorites_are_normalized_like_config_js() {
+        let list = normalize_favorites(
+            &json!([
+                { "id": "a", "url": " https://www.Example.com ", "title": "", "favicon": "javascript:x" },
+                { "url": "https://www.example.com/" },
+                { "url": "ftp://example.com/" },
+                { "url": 5 },
+                "junk",
+                { "url": "http://test.dev/x", "title": "T", "favicon": "data:image/png;base64,AA" }
+            ]),
+            100,
+        );
+        let items = list.as_array().unwrap();
+        assert_eq!(items.len(), 2);
+        assert_eq!(items[0]["id"], "a");
+        assert_eq!(items[0]["url"], "https://www.example.com/");
+        assert_eq!(items[0]["title"], "example.com");
+        assert_eq!(items[0]["favicon"], "");
+        assert_eq!(items[1]["title"], "T");
+        assert!(items[1]["favicon"].as_str().unwrap().starts_with("data:image/"));
+        assert_eq!(favorite_title(Some(&json!("x".repeat(200))), "https://a.b/").chars().count(), 120);
+        let many: Vec<Value> = (0..50).map(|i| json!({ "url": format!("https://s{i}.test/") })).collect();
+        assert_eq!(normalize_favorites(&Value::Array(many), MAX_SHORTCUTS).as_array().unwrap().len(), 30);
+    }
+
+    #[test]
+    fn add_and_remove_entries() {
+        let list = add_to_collection(&json!([]), Collection::Favorites, &json!({ "url": "https://a.test" }));
+        let list = add_to_collection(&list, Collection::Favorites, &json!({ "url": "https://b.test", "title": "B" }));
+        assert_eq!(list[1]["url"], "https://b.test/");
+        // Existing URL: updated in place, not duplicated.
+        let list = add_to_collection(&list, Collection::Favorites, &json!({ "url": "https://a.test/", "title": "A" }));
+        assert_eq!(list.as_array().unwrap().len(), 2);
+        assert_eq!(list[0]["title"], "A");
+        // Invalid URL: unchanged.
+        assert_eq!(add_to_collection(&list, Collection::Favorites, &json!({ "url": "file:///c" })), list);
+        // Saved pages go first.
+        let saved = add_to_collection(&json!([{ "id": "x", "url": "https://x.test/", "title": "x", "favicon": "" }]), Collection::Saved, &json!({ "url": "https://y.test" }));
+        assert_eq!(saved[0]["url"], "https://y.test/");
+        let id = list[0]["id"].as_str().unwrap().to_string();
+        assert_eq!(remove_by_id(&list, &id).as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn bookmarks_and_folders() {
+        let list = add_bookmark(&json!([]), &json!({ "url": "https://a.test", "folderId": "f1", "tags": [" x ", "", 3] }));
+        assert_eq!(list[0]["folderId"], "f1");
+        assert_eq!(list[0]["tags"], json!(["x", "3"]));
+        assert!(list[0]["createdAt"].is_number());
+        let list = add_bookmark(&list, &json!({ "url": "https://a.test/", "title": "New", "tags": ["y"] }));
+        assert_eq!(list.as_array().unwrap().len(), 1);
+        assert_eq!(list[0]["title"], "New");
+        assert_eq!(list[0]["tags"], json!(["y"]));
+
+        let folders = json!([
+            { "id": "f1", "name": "One", "parentId": null },
+            { "id": "f2", "name": "Two", "parentId": "f1" },
+            { "id": "f3", "name": "Three", "parentId": "f2" },
+            { "id": "f4", "name": "Four", "parentId": null }
+        ]);
+        let (bookmarks, folders) = remove_bookmark_folder(&list, &folders, "f1");
+        assert_eq!(bookmarks[0]["folderId"], Value::Null);
+        assert_eq!(folders.as_array().unwrap().len(), 1);
+        assert_eq!(folders[0]["id"], "f4");
+        assert_eq!(normalize_bookmark_folders(&json!([{ "name": "  " }, { "id": "a", "name": "A" }, { "id": "a", "name": "B" }])).as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn zoom_map_and_hosts() {
+        let zoom = normalize_zoom(&json!({ "Example.com": 1.5, "one.test": 1.0, "big.test": 9, "bad.test": "x", "str.test": "0.8" }));
+        assert_eq!(zoom, json!({ "example.com": 1.5, "big.test": 5.0, "str.test": 0.8 }));
+        assert_eq!(zoom_host("https://WWW.Example.com/a?b").as_deref(), Some("www.example.com"));
+        assert_eq!(zoom_host("http://jtech.localhost/newtab").as_deref(), Some("jtech.localhost"));
+        assert_eq!(zoom_host("jtech://newtab"), None);
+        assert_eq!(clamp_zoom(1.234), 1.23);
+        assert_eq!(clamp_zoom(0.1), 0.25);
     }
 }

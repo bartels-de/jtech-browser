@@ -333,9 +333,24 @@ fn build_tab_webview(app: &AppHandle, id: &str, label: &str, url: Url) -> Webvie
                 record_history(&app_title, &url, &history_title, true);
             }
         })
-        .on_page_load(move |_webview, payload| {
+        .on_page_load(move |webview, payload| {
             let url = payload.url().clone();
             let event = payload.event();
+            if matches!(event, PageLoadEvent::Started) {
+                // Per-site zoom, like did-navigate in tabs.js.
+                let host_zoom = site_zoom(&app_load, url.as_str());
+                let changed = with_browser(&app_load, |b| {
+                    let tab = b.tabs.iter_mut().find(|t| t.id == id_load)?;
+                    let changed = (tab.zoom - host_zoom).abs() > 0.001;
+                    tab.zoom = host_zoom;
+                    Some(changed)
+                });
+                if changed == Some(true) {
+                    tauri::async_runtime::spawn(async move {
+                        let _ = webview.set_zoom(host_zoom);
+                    });
+                }
+            }
             update_tab(&app_load, &id_load, |tab| {
                 tab.url = url.to_string();
                 match event {
@@ -354,6 +369,13 @@ fn build_tab_webview(app: &AppHandle, id: &str, label: &str, url: Url) -> Webvie
                 record_history(&app_load, url.as_str(), &title, false);
             }
         })
+}
+
+/// Stored zoom for the URL's host (`settings.zoom`), 1 for other URLs.
+fn site_zoom(app: &AppHandle, url: &str) -> f64 {
+    app.try_state::<crate::settings::SettingsStore>()
+        .map(|store| store.zoom_for(url))
+        .unwrap_or(1.0)
 }
 
 fn tab_url(app: &AppHandle, id: &str) -> Option<String> {
@@ -399,8 +421,10 @@ fn spawn_webview(app: &AppHandle, id: &str, url: Url) -> Result<(), String> {
         .get_window(WINDOW_LABEL)
         .ok_or_else(|| "main window is missing".to_string())?;
     let label = next_webview_label(id);
+    let host_zoom = site_zoom(app, url.as_str());
     let zoom = with_browser(app, |b| {
         let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
+        tab.zoom = host_zoom;
         tab.webview_label = Some(label.clone());
         tab.sleeping = false;
         tab.loading = true;
@@ -876,11 +900,15 @@ pub fn zoom(app: &AppHandle, action: &str, value: Option<f64>) -> Result<(), Str
         let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
         let next = next_zoom(tab.zoom, action, value)?;
         tab.zoom = next;
-        Some((tab.label(), next))
+        Some((tab.label(), next, tab.url.clone()))
     });
-    let Some((label, factor)) = target else {
+    let Some((label, factor, url)) = target else {
         return Ok(());
     };
+    // Remembered per host like setZoomFactor in config.js (http(s) only).
+    if let Some(store) = app.try_state::<crate::settings::SettingsStore>() {
+        store.set_zoom_for(&url, factor);
+    }
     if let Some(webview) = label.and_then(|label| app.get_webview(&label)) {
         webview.set_zoom(factor).map_err(|e| e.to_string())?;
     }
