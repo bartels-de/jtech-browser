@@ -25,7 +25,11 @@
   tauriStyle.textContent = [
     'html.is-tauri #extensions-menu,',
     'html.is-tauri .settings__nav-btn[data-panel="extensions"],',
-    'html.is-tauri .settings__panel[data-panel="extensions"] { display: none !important; }'
+    'html.is-tauri .settings__panel[data-panel="extensions"] { display: none !important; }',
+    // The vertical layout hides the old title bar, so it has no drag area
+    // left. Let the empty parts of the toolbar move the window.
+    'html.is-tauri .toolbar { -webkit-app-region: drag; }',
+    'html.is-tauri .toolbar .omnibox, html.is-tauri .toolbar .omnibox * { -webkit-app-region: no-drag; }'
   ].join('\n');
   document.head.appendChild(tauriStyle);
 
@@ -118,8 +122,10 @@
 
   /* ---------------------------------------------- Window drag (frameless) */
 
-  // Electron uses CSS `-webkit-app-region: drag`. WebView2 does not move the
-  // window for it, so start the drag from Rust instead.
+  // Electron uses CSS `-webkit-app-region: drag`. In the Tauri build the
+  // chrome UI is a child webview, where WebView2 cannot move the window for
+  // it (Rust turns that off), so the bridge starts a native drag instead:
+  // that also gives Aero Snap. Double-click toggles maximize.
   function appRegion(element) {
     for (let node = element; node && node.nodeType === 1; node = node.parentElement) {
       const style = getComputedStyle(node);
@@ -131,17 +137,22 @@
 
   const INTERACTIVE = 'button, a, input, textarea, select, [contenteditable], [role="button"]';
 
+  // Capture phase: in Electron drag regions get no mouse events at all, so
+  // app.js handlers never see these clicks either.
   window.addEventListener('mousedown', (event) => {
-    if (event.button !== 0 || event.defaultPrevented) return;
+    if (event.button !== 0) return;
     const target = event.target;
     if (!(target instanceof Element) || target.closest(INTERACTIVE)) return;
     if (appRegion(target) !== 'drag') return;
+    // Like Tauri's drag.js: no text selection, no other handlers.
+    event.preventDefault();
+    event.stopImmediatePropagation();
     if (event.detail === 2) {
       send('window_toggle_maximize');
     } else {
       send('window_start_dragging');
     }
-  });
+  }, true);
 
   /* ---------------------------------------------------------------- API */
 

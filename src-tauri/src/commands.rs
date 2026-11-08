@@ -161,8 +161,10 @@ pub async fn window_minimize(app: AppHandle) -> CmdResult {
     window(&app)?.minimize().map_err(|e| e.to_string())
 }
 
+// Not async: sync commands run on the main thread, so the native drag
+// starts while the mouse button is still down (tao needs that).
 #[tauri::command]
-pub async fn window_toggle_maximize(app: AppHandle) -> CmdResult {
+pub fn window_toggle_maximize(app: AppHandle) -> CmdResult {
     let window = window(&app)?;
     let result = if window.is_maximized().unwrap_or(false) {
         window.unmaximize()
@@ -178,7 +180,7 @@ pub async fn window_close(app: AppHandle) -> CmdResult {
 }
 
 #[tauri::command]
-pub async fn window_start_dragging(app: AppHandle) -> CmdResult {
+pub fn window_start_dragging(app: AppHandle) -> CmdResult {
     window(&app)?.start_dragging().map_err(|e| e.to_string())
 }
 
