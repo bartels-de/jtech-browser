@@ -1,0 +1,954 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: https: http:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>JTech Browser</title>
+    <link rel="stylesheet" href="styles/theme.css" />
+    <link rel="stylesheet" href="styles/app.css" />
+    <link rel="stylesheet" href="styles/obsidian.css" />
+  </head>
+  <body data-tab-layout="horizontal">
+    <div class="backdrop" aria-hidden="true">
+      <span class="orb orb--cyan"></span>
+      <span class="orb orb--violet"></span>
+      <span class="orb orb--pink"></span>
+      <div class="grid"></div>
+    </div>
+
+    <header class="chrome" id="chrome">
+      <div class="titlebar">
+        <div class="brand" title="JTech Browser">
+          <img class="brand__mark" src="assets/logo.svg" alt="JTech Browser" draggable="false" />
+        </div>
+
+        <div class="tabstrip" id="tabstrip">
+          <div class="tabs" id="tabs" role="tablist" aria-label="Tabs"></div>
+          <button class="new-tab" id="new-tab" title="Neuer Tab (Ctrl+T)" aria-label="Neuer Tab">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button class="new-tab" id="tab-search-open" title="Tabs suchen (Ctrl+Shift+A)" aria-label="Tabs suchen">
+            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true">
+              <circle cx="8.5" cy="8.5" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5" />
+              <path d="M12 12l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="titlebar__drag" id="drag-region"></div>
+
+      </div>
+
+      <div class="toolbar">
+        <div class="nav-group">
+          <button class="icon-btn" id="back" title="Zurück (Alt+←)" aria-label="Zurück" disabled>
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+              <path d="M12.5 4.5L7 10l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="forward" title="Vorwärts (Alt+→)" aria-label="Vorwärts" disabled>
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+              <path d="M7.5 4.5L13 10l-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="reload" title="Neu laden (Ctrl+R)" aria-label="Neu laden">
+            <svg class="ico-reload" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <path d="M15.5 10a5.5 5.5 0 1 1-1.9-4.2M15.6 3.6v3.2h-3.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <svg class="ico-stop" viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+              <path d="M6.5 6.5l7 7M13.5 6.5l-7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <form class="omnibox" id="omnibox-form" spellcheck="false">
+          <span class="omnibox__badge is-hidden" id="security-badge" title="Sichere Verbindung">
+            <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+              <rect x="3.5" y="7" width="9" height="6.2" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.2" />
+              <path d="M5.6 7V5.4a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </span>
+          <input
+            class="omnibox__input"
+            id="omnibox"
+            type="text"
+            placeholder="Suchen oder Adresse eingeben"
+            autocomplete="off"
+            autocapitalize="off"
+            aria-label="Adress- und Suchleiste"
+          />
+          <button class="zoom-reset" id="zoom-reset" type="button" title="Zoom zurücksetzen (Ctrl+0)" hidden>100 %</button>
+         <div class="omnibox-suggestions" id="omnibox-suggestions" hidden></div>
+         <div class="modal" id="prompt-modal" hidden>
+           <div class="modal__box">
+             <p class="modal__title" id="prompt-title"></p>
+             <input class="text-input" id="prompt-input" type="text" />
+             <div class="modal__actions">
+               <button class="btn-ghost" id="prompt-cancel" type="button">Abbrechen</button>
+               <button class="btn-primary" id="prompt-ok" type="button">OK</button>
+             </div>
+           </div>
+         </div>
+        </form>
+
+        <div class="toolbar__right">
+          <button class="icon-btn icon-btn--star" id="favorite-toggle" title="Zu Favoriten hinzufügen" aria-label="Zu Favoriten hinzufügen" disabled>
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+              <path
+                d="M10 3.2l2.05 4.15 4.58.67-3.32 3.23.79 4.56L10 13.66l-4.1 2.15.79-4.56L3.37 8.02l4.58-.67L10 3.2z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+          <button class="icon-btn" id="studio-open" title="Design-Studio" aria-label="Design-Studio öffnen">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <path d="M3.2 6.4h13.6M3.2 13.6h13.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <circle cx="7.2" cy="6.4" r="1.9" fill="var(--glass-strong)" stroke="currentColor" stroke-width="1.4" />
+              <circle cx="12.8" cy="13.6" r="1.9" fill="var(--glass-strong)" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="settings-open" title="Einstellungen (Ctrl+,)" aria-label="Einstellungen öffnen">
+            <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+              <path d="M8.5 2.5l0.6 2.1a5.5 5.5 0 0 1 1.8 0l0.6-2.1 2 0.8-0.3 2.2a5.5 5.5 0 0 1 1.3 1.3l2.2-0.3 0.8 2-2.1 0.6a5.5 5.5 0 0 1 0 1.8l2.1 0.6-0.8 2-2.2-0.3a5.5 5.5 0 0 1-1.3 1.3l0.3 2.2-2 0.8-0.6-2.1a5.5 5.5 0 0 1-1.8 0l-0.6 2.1-2-0.8 0.3-2.2a5.5 5.5 0 0 1-1.3-1.3l-2.2 0.3-0.8-2 2.1-0.6a5.5 5.5 0 0 1 0-1.8L2.6 7.4l0.8-2 2.2 0.3a5.5 5.5 0 0 1 1.3-1.3L6.5 2.2 8.5 2.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+              <circle cx="10" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="gaming-mode-toggle" title="Gaming-Modus" aria-label="Gaming-Modus umschalten">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <rect x="3" y="7" width="14" height="9" rx="3" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <circle cx="7.5" cy="11.5" r="1.3" fill="currentColor" />
+              <circle cx="12.5" cy="11.5" r="1.3" fill="currentColor" />
+              <path d="M9 9.5v4M7 11.5h4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="resource-hud-toggle" title="Ressourcen-HUD" aria-label="Ressourcen-HUD umschalten">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <rect x="3" y="10" width="3" height="7" rx="1" fill="currentColor" />
+              <rect x="8.5" y="6" width="3" height="11" rx="1" fill="currentColor" />
+              <rect x="14" y="3" width="3" height="14" rx="1" fill="currentColor" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="media-hub-toggle" title="Media-Hub" aria-label="Media-Hub öffnen">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <path d="M8 4.4l7-1.5v8.3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+              <circle cx="6" cy="14.2" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <circle cx="13" cy="12.7" r="2.3" fill="none" stroke="currentColor" stroke-width="1.4" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="picture-in-picture" title="Picture-in-Picture (Ctrl+Shift+P)" aria-label="Picture-in-Picture">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <rect x="2" y="4" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" />
+              <rect x="11" y="9" width="6" height="5" rx="1" fill="currentColor" opacity="0.6" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="devtools" title="Entwicklertools (F12)" aria-label="Entwicklertools">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+              <path d="M7.2 6.4L3.6 10l3.6 3.6M12.8 6.4L16.4 10l-3.6 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </button>
+
+          <div class="extensions-menu" id="extensions-menu">
+            <button class="icon-btn" id="extensions-menu-toggle" title="Erweiterungen" aria-label="Erweiterungen" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                <rect x="3" y="3" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <rect x="11" y="3" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <rect x="3" y="11" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+                <rect x="11" y="11" width="6" height="6" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4" />
+              </svg>
+            </button>
+            <div class="extensions-menu__panel" id="extensions-menu-panel" hidden>
+              <div class="extensions-menu__header">Erweiterungen</div>
+              <div class="extensions-menu__list" id="extensions-menu-list"></div>
+              <div class="extensions-menu__empty" id="extensions-menu-empty">Keine Erweiterungen geladen.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="window-controls" id="window-controls">
+        <button class="win-btn" id="win-min" title="Minimieren" aria-label="Minimieren">
+          <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+            <path d="M2 5h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          </svg>
+        </button>
+        <button class="win-btn" id="win-max" title="Maximieren" aria-label="Maximieren">
+          <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+            <rect x="2.4" y="2.4" width="5.2" height="5.2" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
+          </svg>
+        </button>
+        <button class="win-btn win-btn--close" id="win-close" title="Schließen" aria-label="Schließen">
+          <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true">
+            <path d="M2.6 2.6l4.8 4.8M7.4 2.6L2.6 7.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="findbar" id="findbar" hidden>
+        <svg class="findbar__icon" viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="4.8" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <path d="M12 12l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+        <input class="findbar__input" id="find-input" type="text" placeholder="Auf dieser Seite suchen …" autocomplete="off" aria-label="Suchtext" />
+        <span class="findbar__count" id="find-count" aria-live="polite"></span>
+        <button class="icon-btn" id="find-prev" type="button" title="Vorheriger Treffer (Shift+Enter)" aria-label="Vorheriger Treffer">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M5 12l5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <button class="icon-btn" id="find-next" type="button" title="Nächster Treffer (Enter)" aria-label="Nächster Treffer">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <button class="icon-btn" id="find-close" type="button" title="Schließen (Esc)" aria-label="Suche schließen">
+          <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+        </button>
+      </div>
+
+      <div class="favorites" id="favorites" hidden>
+        <div class="favorites__list" id="favorites-list" role="toolbar" aria-label="Favoriten"></div>
+        <button class="icon-btn favorites__manage" id="favorites-manage" title="Favoriten verwalten" aria-label="Favoriten verwalten">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+            <path d="M4 6h12M4 10h12M4 14h12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="split-control" id="split-control" hidden>
+        <span class="split-control__title" id="split-left-title">Links</span>
+        <div class="split-control__actions">
+          <button class="icon-btn" id="split-narrower" type="button" title="Linker Tab schmaler" aria-label="Linker Tab schmaler">◀</button>
+          <button class="icon-btn" id="split-wider" type="button" title="Linker Tab breiter" aria-label="Linker Tab breiter">▶</button>
+          <button class="btn-ghost" id="split-close" type="button">Split beenden</button>
+        </div>
+        <span class="split-control__title" id="split-right-title">Rechts</span>
+      </div>
+
+      <div class="resource-hud" id="resource-hud" hidden>
+        <div class="resource-hud__head">
+          <p class="resource-hud__title">Ressourcen-HUD</p>
+          <button class="resource-hud__close" id="resource-hud-close" type="button" aria-label="Schließen">×</button>
+        </div>
+        <div class="resource-hud__row"><span>RAM (gesamt)</span><strong id="hud-ram">–</strong></div>
+        <div class="resource-hud__row"><span>CPU (gesamt)</span><strong id="hud-cpu">–</strong></div>
+        <div class="resource-hud__row"><span>Aktiver Tab</span><strong id="hud-tab">–</strong></div>
+        <div class="resource-hud__row"><span>Tabs</span><strong id="hud-tabs">–</strong></div>
+      </div>
+    </header>
+
+        <aside class="sidebar" id="sidebar" aria-label="Seitenleiste">
+      <button class="sidebar__burger" id="sidebar-burger" type="button" aria-label="Seitenleiste einklappen">
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+          <path d="M3 5h14M3 10h14M3 15h14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+        </svg>
+      </button>
+
+      <button class="sidebar__item sidebar__item--primary" id="sidebar-home" type="button">
+        <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><path d="M3 10l7-7 7 7M5 9v7h4v-4h2v4h4V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        <span>Startseite</span>
+      </button>
+
+      <div class="sidebar__section">
+        <div class="sidebar__section-title">Favoriten</div>
+        <div class="sidebar__list" id="sidebar-favorites"></div>
+      </div>
+
+      <div class="sidebar__section sidebar__section--tabs">
+        <div class="sidebar__section-title">Offene Tabs</div>
+        <div class="sidebar__tabs" id="sidebar-tabs"></div>
+      </div>
+
+      <div class="sidebar__foot">
+        <button class="sidebar__item" id="sidebar-settings" type="button">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+            <path d="M8.5 2.5l0.6 2.1a5.5 5.5 0 0 1 1.8 0l0.6-2.1 2 0.8-0.3 2.2a5.5 5.5 0 0 1 1.3 1.3l2.2-0.3 0.8 2-2.1 0.6a5.5 5.5 0 0 1 0 1.8l2.1 0.6-0.8 2-2.2-0.3a5.5 5.5 0 0 1-1.3 1.3l0.3 2.2-2 0.8-0.6-2.1a5.5 5.5 0 0 1-1.8 0l-0.6 2.1-2-0.8 0.3-2.2a5.5 5.5 0 0 1-1.3-1.3l-2.2 0.3-0.8-2 2.1-0.6a5.5 5.5 0 0 1 0-1.8L2.6 7.4l0.8-2 2.2 0.3a5.5 5.5 0 0 1 1.3-1.3L6.5 2.2 8.5 2.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" />
+            <circle cx="10" cy="10" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+          </svg>
+          <span>Einstellungen</span>
+        </button>
+        <button class="sidebar__item sidebar__item--profile" id="sidebar-profile" type="button">
+          <span class="sidebar__avatar" id="sidebar-avatar">J</span>
+          <span class="sidebar__profile-name" id="sidebar-profile-name">Profil</span>
+        </button>
+      </div>
+
+      <div class="sidebar__resize" id="sidebar-resize" aria-hidden="true"></div>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="stage__glow" aria-hidden="true"></div>
+    </main>
+
+    <aside class="media-hub" id="media-hub" hidden aria-hidden="true" aria-label="Media-Hub">
+      <header class="media-hub__head">
+        <div>
+          <p class="media-hub__eyebrow">JTech Browser</p>
+          <h2 class="media-hub__title">Media-Hub</h2>
+        </div>
+        <button class="icon-btn" id="media-hub-close" title="Media-Hub schließen" aria-label="Media-Hub schließen">
+          <svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+          </svg>
+        </button>
+      </header>
+
+      <div class="media-hub__actions">
+        <button class="btn-ghost" type="button" id="media-pause-all">Alle pausieren</button>
+        <button class="btn-ghost" type="button" id="media-refresh">Aktualisieren</button>
+      </div>
+
+      <section class="media-hub__section">
+        <h3 class="media-hub__label">Wiedergabe</h3>
+        <div class="media-hub__list" id="media-hub-list"></div>
+        <p class="media-hub__empty" id="media-hub-empty">Keine laufende Wiedergabe erkannt.</p>
+      </section>
+
+      <section class="media-hub__section media-hub__section--mixer">
+        <h3 class="media-hub__label">Tab-Lautstärke</h3>
+        <p class="media-hub__hint">Bis 100 % wie im Video, darüber hinaus verstärkt (max. 300 %).</p>
+        <div class="media-hub__mixer" id="media-mixer-list"></div>
+        <p class="media-hub__empty" id="media-mixer-empty">Keine geöffneten Tabs.</p>
+      </section>
+
+      <footer class="media-hub__foot">
+        <span id="media-hub-status">Bereit</span>
+      </footer>
+    </aside>
+
+    <section class="studio" id="studio" hidden aria-hidden="true">
+      <div class="studio__sheet" role="dialog" aria-modal="true" aria-labelledby="studio-title">
+        <header class="studio__head">
+          <div>
+            <p class="studio__eyebrow">JTech Browser</p>
+            <h2 class="studio__title" id="studio-title">Design-Studio</h2>
+          </div>
+          <div class="studio__head-actions">
+            <span class="studio__status" id="theme-status" data-state="idle">Automatisch gespeichert</span>
+            <button class="icon-btn" id="studio-close" title="Schließen (Esc)" aria-label="Design-Studio schließen">
+              <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="studio__body">
+          <aside class="studio__side">
+            <h3 class="studio__label">Presets</h3>
+            <div class="preset-grid" id="preset-grid"></div>
+            <div class="settings__actions">
+              <button class="btn-ghost" id="save-custom-theme" type="button">Eigenes Theme speichern</button>
+            </div>
+            <div id="theme-save-form" hidden style="flex-direction:column;gap:8px;margin:12px 0;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:10px;">
+              <label style="font-size:12px;opacity:0.8;">Name des neuen Themes</label>
+              <input class="text-input" id="theme-save-name" placeholder="Mein Theme" style="padding:10px;font-size:14px;" />
+              <div style="display:flex;gap:8px;">
+                <button class="btn-ghost" id="theme-save-confirm" type="button">Speichern</button>
+                <button class="btn-ghost" id="theme-save-cancel" type="button">Abbrechen</button>
+              </div>
+            </div>
+
+            <div class="studio__preview" aria-hidden="true">
+              <div class="preview__top">
+                <span class="preview__mark"></span>
+                <span class="preview__tab">Beispiel</span>
+              </div>
+              <div class="preview__omnibox">jtech://newtab</div>
+              <div class="preview__line"></div>
+              <div class="preview__line preview__line--short"></div>
+            </div>
+
+            <div class="studio__quick-actions">
+              <button class="btn-ghost" type="button" id="theme-export">Exportieren</button>
+              <button class="btn-ghost" type="button" id="theme-import">Importieren</button>
+              <input type="file" id="theme-import-input" accept="application/json,.json" hidden />
+              <button class="btn-ghost" type="button" id="theme-randomize">🎲 Zufällig</button>
+            </div>
+          </aside>
+
+          <div class="studio__controls">
+            <nav class="studio__tabs" role="tablist" aria-label="Theme-Editor-Bereiche" id="theme-tabs">
+              <button class="studio__tab is-active" type="button" data-tab="colors" role="tab" aria-selected="true">Farben</button>
+              <button class="studio__tab" type="button" data-tab="surface" role="tab" aria-selected="false">Oberfläche</button>
+              <button class="studio__tab" type="button" data-tab="background" role="tab" aria-selected="false">Hintergrund</button>
+              <button class="studio__tab" type="button" data-tab="style" role="tab" aria-selected="false">Stil</button>
+              <button class="studio__tab" type="button" data-tab="effects" role="tab" aria-selected="false">Effekte</button>
+              <button class="studio__tab" type="button" data-tab="advanced" role="tab" aria-selected="false">Erweitert</button>
+            </nav>
+
+            <div class="studio__tab-panels">
+              <!-- Farben -->
+              <div class="studio__tab-panel is-active" data-panel="colors" role="tabpanel" aria-labelledby="theme-tab-colors">
+                <div class="studio__panel-grid">
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-accent">Akzentfarbe</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-accent" value="#ff6b35" aria-label="Akzentfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-accent-hex" value="#FF6B35" maxlength="7" spellcheck="false" aria-label="Akzentfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-accent-alt">Zweite Akzentfarbe</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-accent-alt" value="#00d4aa" aria-label="Zweite Akzentfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-accent-alt-hex" value="#00D4AA" maxlength="7" spellcheck="false" aria-label="Zweite Akzentfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-bg">Hintergrundfarbe</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-bg" value="#0a0a0f" aria-label="Hintergrundfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-bg-hex" value="#0A0A0F" maxlength="7" spellcheck="false" aria-label="Hintergrundfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-text">Textfarbe</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-text" value="#e4e4ec" aria-label="Textfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-text-hex" value="#E4E4EC" maxlength="7" spellcheck="false" aria-label="Textfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-text-dim">Gedämpfter Text</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-text-dim" value="#8a8a9a" aria-label="Gedämpfte Textfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-text-dim-hex" value="#8A8A9A" maxlength="7" spellcheck="false" aria-label="Gedämpfte Textfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Oberfläche -->
+              <div class="studio__tab-panel" data-panel="surface" role="tabpanel" aria-labelledby="theme-tab-surface">
+                <div class="studio__panel-grid">
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-glass">Glas-Deckkraft</label>
+                      <output class="control__value" id="glass-value" for="theme-glass">72 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-glass" min="20" max="95" step="1" value="72" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-blur">Weichzeichnen</label>
+                      <output class="control__value" id="blur-value" for="theme-blur">20 px</output>
+                    </div>
+                    <input class="range" type="range" id="theme-blur" min="0" max="60" step="1" value="20" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-radius">Eckenradius</label>
+                      <output class="control__value" id="radius-value" for="theme-radius">10 px</output>
+                    </div>
+                    <input class="range" type="range" id="theme-radius" min="0" max="28" step="1" value="10" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-stroke">Rahmen-Deckkraft</label>
+                      <output class="control__value" id="stroke-value" for="theme-stroke">8 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-stroke" min="0" max="30" step="1" value="8" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-shadow">Schatten-Stärke</label>
+                      <output class="control__value" id="shadow-value" for="theme-shadow">35 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-shadow" min="0" max="80" step="1" value="35" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-saturation">Farbsättigung</label>
+                      <output class="control__value" id="saturation-value" for="theme-saturation">180 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-saturation" min="100" max="300" step="5" value="180" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-border-style">Rahmenstil</label>
+                      <select class="select select--inline" id="theme-border-style">
+                        <option value="default">Standard</option>
+                        <option value="thin">Dünn</option>
+                        <option value="glow">Glow</option>
+                        <option value="none">Kein Rand</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hintergrund -->
+              <div class="studio__tab-panel" data-panel="background" role="tabpanel" aria-labelledby="theme-tab-background">
+                <div class="studio__panel-grid">
+                  <div class="control control--wide">
+                    <label class="control__label" for="theme-wallpaper">Hintergrundbild-URL</label>
+                    <input class="text-input" type="text" id="theme-wallpaper" placeholder="https://example.com/wallpaper.jpg" spellcheck="false" aria-label="Hintergrundbild-URL" />
+                    <p class="control__hint">Leer lassen, um stattdessen Animationen zu nutzen.</p>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-bg-animation">Hintergrund-Animation</label>
+                      <select class="select select--inline" id="theme-bg-animation">
+                        <option value="none">Keine</option>
+                        
+                        <option value="aurora">Aurora</option>
+                        
+                        <option value="mesh">Mesh</option>
+                        
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-animation-speed">Anim.-Geschwindigkeit</label>
+                      <output class="control__value" id="animation-speed-value" for="theme-animation-speed">100 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-animation-speed" min="0" max="200" step="5" value="100" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-animation-intensity">Anim.-Intensität</label>
+                      <output class="control__value" id="animation-intensity-value" for="theme-animation-intensity">50 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-animation-intensity" min="0" max="100" step="1" value="50" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stil -->
+              <div class="studio__tab-panel" data-panel="style" role="tabpanel" aria-labelledby="theme-tab-style">
+                <div class="studio__panel-grid">
+                  <div class="control control--wide">
+                    <label class="control__label" for="theme-style">Browser-Stil</label>
+                    <select class="select" id="theme-style">
+                      <option value="default">Standard – Ausgewogene Mischung</option>
+                      <option value="clean">Aufgeräumt – Reduziertes Chrome</option>
+                      <option value="animated">Animation – Mehr Bewegung & Glow</option>
+                      <option value="gaming">Gaming – Starker Kontrast & Glow</option>
+                      <option value="minimal">Minimal – Ultra-reduziert</option>
+                    </select>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-glow-intensity">Glow-Stärke</label>
+                      <output class="control__value" id="glow-intensity-value" for="theme-glow-intensity">50 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-glow-intensity" min="0" max="100" step="1" value="50" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-transition-speed">Übergangsgeschwindigkeit</label>
+                      <output class="control__value" id="transition-speed-value" for="theme-transition-speed">100 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-transition-speed" min="0" max="200" step="5" value="100" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-font">Schriftart</label>
+                      <select class="select select--inline" id="theme-font">
+                        <option value="system">System-UI</option>
+                        <option value="mono">Monospace</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-font-size">Schriftgröße</label>
+                      <output class="control__value" id="font-size-value" for="theme-font-size">100 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-font-size" min="80" max="125" step="1" value="100" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Effekte -->
+              <div class="studio__tab-panel" data-panel="effects" role="tabpanel" aria-labelledby="theme-tab-effects">
+                <div class="studio__panel-grid">
+                  <div class="control control--wide">
+                    <label class="control__label" for="theme-cursor-effect">Cursor-Effekt</label>
+                    <select class="select" id="theme-cursor-effect">
+                      <option value="none">Kein Effekt</option>
+                      <option value="trail">Spur</option>
+                      <option value="sparks">Funken</option>
+                      <option value="comet">Komet</option>
+                      <option value="ripple">Welle</option>
+                      <option value="laser">Laser</option>
+                      <option value="bubbles">Blasen</option>
+                    </select>
+                    <p class="control__hint">Gilt für das Interface, die Startseite und alle Webseiten.</p>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-cursor-color">Effektfarbe</label>
+                      <div class="color-field">
+                        <input class="color-swatch" type="color" id="theme-cursor-color" value="#ff6b35" aria-label="Effektfarbe wählen" />
+                        <input class="hex-input" type="text" id="theme-cursor-color-hex" value="#FF6B35" maxlength="7" spellcheck="false" aria-label="Effektfarbe als Hex-Wert" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-cursor-size">Effektgröße</label>
+                      <output class="control__value" id="cursor-size-value" for="theme-cursor-size">16 px</output>
+                    </div>
+                    <input class="range" type="range" id="theme-cursor-size" min="2" max="40" step="1" value="16" />
+                  </div>
+
+                  <div class="control">
+                    <div class="control__row">
+                      <label class="control__label" for="theme-cursor-intensity">Effektintensität</label>
+                      <output class="control__value" id="cursor-intensity-value" for="theme-cursor-intensity">60 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-cursor-intensity" min="0" max="100" step="1" value="60" />
+                   </div>
+
+                   <div class="control control--wide">
+                     <label class="control__label" for="theme-cursor-image">Cursor-Stil</label>
+                     <select class="select" id="theme-cursor-image">
+                       <option value="">Standard</option>
+                       <option value="dot">Punkt</option>
+                       <option value="ring">Ring</option>
+                       <option value="cross">Fadenkreuz</option>
+                       <option value="arrow-glow">Pfeil (Glow)</option>
+                       <option value="target">Ziel</option>
+                     </select>
+                     <p class="control__hint">Gilt für das Interface und alle Webseiten.</p>
+                   </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Erweitert -->
+              <div class="studio__tab-panel" data-panel="advanced" role="tabpanel" aria-labelledby="theme-tab-advanced">
+                <div class="studio__panel-grid">
+                  <div class="control control--wide">
+                    <label class="control__label" for="theme-css-chrome">Eigenes CSS für das Browser-Interface</label>
+                    <textarea class="code-input" id="theme-css-chrome" spellcheck="false" placeholder="/* CSS für die Chrome-UI */\n.chrome { border-bottom-width: 2px; }"></textarea>
+                  </div>
+
+                  <div class="control control--wide">
+                    <label class="control__label" for="theme-css-newtab">Eigenes CSS für die Startseite</label>
+                    <textarea class="code-input" id="theme-css-newtab" spellcheck="false" placeholder="/* CSS für jtech://newtab */\n.logo { letter-spacing: 0.4em; }"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="studio__foot">
+          <p class="studio__hint">Änderungen werden sofort angewendet und gespeichert.</p>
+          <button class="btn-ghost" id="theme-reset" type="button">Auf Standard zurücksetzen</button>
+        </footer>
+      </div>
+    </section>
+
+    <section class="studio settings" id="settings" hidden aria-hidden="true">
+      <div class="studio__sheet settings__sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <header class="studio__head">
+          <div>
+            <p class="studio__eyebrow">JTech Browser</p>
+            <h2 class="studio__title" id="settings-title">Einstellungen</h2>
+          </div>
+          <div class="studio__head-actions">
+            <span class="studio__status" id="settings-status" data-state="idle">Automatisch gespeichert</span>
+            <button class="icon-btn" id="settings-close" title="Schließen (Esc)" aria-label="Einstellungen schließen">
+              <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+                <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+        </header>
+
+        <div class="studio__body settings__body">
+          <aside class="studio__side settings__nav" role="tablist" aria-label="Einstellungsbereiche">
+            <button class="settings__nav-btn is-active" type="button" data-panel="general" role="tab" aria-selected="true">Allgemein</button>
+            <button class="settings__nav-btn" type="button" data-panel="appearance" role="tab" aria-selected="false">Darstellung</button>
+            <button class="settings__nav-btn" type="button" data-panel="favorites" role="tab" aria-selected="false">Favoriten</button>
+            <button class="settings__nav-btn" type="button" data-panel="shortcuts" role="tab" aria-selected="false">Shortcuts</button>
+            <button class="settings__nav-btn" type="button" data-panel="bangs" role="tab" aria-selected="false">JTech Bangs</button>
+            <button class="settings__nav-btn" type="button" data-panel="bookmarks" role="tab" aria-selected="false">Lesezeichen</button>
+            <button class="settings__nav-btn" type="button" data-panel="history" role="tab" aria-selected="false">Verlauf</button>
+            <button class="settings__nav-btn" type="button" data-panel="downloads" role="tab" aria-selected="false">Downloads</button>
+            <button class="settings__nav-btn" type="button" data-panel="privacy" role="tab" aria-selected="false">Datenschutz</button>
+            <button class="settings__nav-btn" type="button" data-panel="extensions" role="tab" aria-selected="false">Erweiterungen</button>
+            <button class="settings__nav-btn" type="button" data-panel="hotkeys" role="tab" aria-selected="false">Hotkeys</button>
+            <button class="settings__nav-btn" type="button" data-panel="about" role="tab" aria-selected="false">Über</button>
+          </aside>
+
+          <div class="studio__controls settings__content">
+              <section class="settings__panel" data-panel="general">
+              <div class="field">
+                <label class="field__label" for="setting-username">Dein Name</label>
+                <input
+                  class="text-input"
+                  id="setting-username"
+                  type="text"
+                  spellcheck="false"
+                  placeholder="z. B. Max"
+                  aria-describedby="setting-username-hint"
+                />
+                <p class="field__hint" id="setting-username-hint">Wird auf der Startseite und im Profil angezeigt.</p>
+              </div>
+              <h3 class="settings__heading">Suchmaschine</h3>
+
+              <div class="field">
+                <label class="field__label" for="setting-search-engine">Standard-Suchmaschine</label>
+                <select class="select" id="setting-search-engine"></select>
+              </div>
+
+              <div class="field" id="setting-search-custom" hidden>
+                <label class="field__label" for="setting-search-template">Such-URL</label>
+                <input
+                  class="text-input"
+                  id="setting-search-template"
+                  type="text"
+                  spellcheck="false"
+                  placeholder="https://example.com/search?q=%s"
+                  aria-describedby="setting-search-template-hint"
+                />
+                <p class="field__hint" id="setting-search-template-hint">%s wird durch die Suchanfrage ersetzt. Nur http(s)-URLs.</p>
+              </div>
+            </section>
+
+            <section class="settings__panel" data-panel="appearance" hidden>
+              <h3 class="settings__heading">Tab-Leiste</h3>
+              <p class="settings__hint">Tabs werden vertikal in der Seitenleiste angezeigt.</p>
+
+              <h3 class="settings__heading settings__heading--spaced">UI-Dichte</h3>
+              <p class="settings__hint">Steuert Abstände, Tab-Höhe und Schriftgrößen.</p>
+              <div class="segmented" id="setting-density" role="group" aria-label="UI-Dichte">
+                <button class="segmented__btn" type="button" data-density="compact" aria-pressed="false">Kompakt</button>
+                <button class="segmented__btn is-active" type="button" data-density="normal" aria-pressed="true">Normal</button>
+                <button class="segmented__btn" type="button" data-density="comfortable" aria-pressed="false">Luftig</button>
+              </div>
+
+              <h3 class="settings__heading settings__heading--spaced">Favoriten</h3>
+
+              <label class="switch-row" for="setting-favorites-bar">
+                <span class="switch-row__text">
+                  <span class="switch-row__title">Favoritenleiste anzeigen</span>
+                  <span class="switch-row__sub">Erscheint unter der Adressleiste, sobald Favoriten vorhanden sind.</span>
+                </span>
+                <input class="switch" id="setting-favorites-bar" type="checkbox" checked />
+              </label>
+
+              <label class="switch-row" for="setting-gaming-mode">
+                <span class="switch-row__text">
+                  <span class="switch-row__title">Gaming-Modus</span>
+                  <span class="switch-row__sub">Schläft Hintergrund-Tabs ein und reduziert Effekte.</span>
+                </span>
+                <input class="switch" id="setting-gaming-mode" type="checkbox" />
+              </label>
+
+              <label class="switch-row" for="setting-restore-session">
+                <span class="switch-row__text">
+                  <span class="switch-row__title">Sitzung wiederherstellen</span>
+                  <span class="switch-row__sub">Offene Tabs beim nächsten Start wieder öffnen.</span>
+                </span>
+                <input class="switch" id="setting-restore-session" type="checkbox" checked />
+              </label>
+
+              <div class="settings__actions">
+                <button class="btn-ghost" id="settings-open-studio" type="button">Design-Studio öffnen</button>
+              </div>
+            </section>
+
+            <section class="settings__panel" data-panel="favorites" hidden>
+              <h3 class="settings__heading">Favoriten</h3>
+              <p class="settings__hint">Füge die aktuelle Seite hinzu oder entferne Einträge. Über den Stern in der Adressleiste geht es schneller.</p>
+
+              <div class="settings__actions">
+                <button class="btn-ghost" id="settings-add-current" type="button">Aktuelle Seite hinzufügen</button>
+              </div>
+
+              <div class="fav-list" id="settings-favorites-list"></div>
+              <p class="settings__empty" id="settings-favorites-empty">Noch keine Favoriten vorhanden.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="shortcuts" hidden>
+              <h3 class="settings__heading">Shortcuts</h3>
+              <p class="settings__hint">Schnellzugriffe auf der Startseite.</p>
+              <div class="settings__actions">
+                <button class="btn-ghost" id="shortcuts-add-current" type="button">Aktuelle Seite hinzufügen</button>
+              </div>
+              <div class="shortcut-list" id="shortcut-list"></div>
+              <p class="settings__empty" id="shortcuts-empty">Noch keine Shortcuts.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="bangs" hidden>
+              <h3 class="settings__heading">JTech Bangs</h3>
+              <p class="settings__hint">Eigene Bang-Befehle: Trigger (z. B. yt) + URL mit %s.</p>
+              <div class="settings__actions">
+                <button class="btn-ghost" id="bangs-add" type="button">JTech Bang hinzufügen</button>
+              </div>
+              <div id="bangs-form" hidden style="flex-direction:column;gap:8px;margin-bottom:10px;">
+                <input class="text-input" id="bangs-trigger" placeholder="Trigger (ohne !), z. B. yt" />
+                <input class="text-input" id="bangs-url" placeholder="URL mit %s" />
+                <div style="display:flex;gap:8px;">
+                  <button class="btn-ghost" id="bangs-save" type="button">Speichern</button>
+                  <button class="btn-ghost" id="bangs-cancel" type="button">Abbrechen</button>
+                </div>
+              </div>
+              <div class="shortcut-list" id="bangs-list"></div>
+              <p class="settings__empty" id="bangs-empty">Noch keine JTech Bangs.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="bookmarks" hidden>
+              <h3 class="settings__heading">Lesezeichen</h3>
+              <p class="settings__hint">Ordner, Tags und Verwaltung.</p>
+              <div class="settings__actions">
+                <button class="btn-ghost" id="bookmarks-add-current" type="button">Aktuelle Seite speichern</button>
+                <button class="btn-ghost" id="bookmarks-add-folder" type="button">Ordner erstellen</button>
+                <button class="btn-ghost" id="bookmarks-export" type="button">Exportieren</button>
+                <button class="btn-ghost" id="bookmarks-import" type="button">Importieren</button>
+              </div>
+              <input class="text-input" id="bookmarks-search" type="text" placeholder="Lesezeichen durchsuchen …" autocomplete="off" />
+              <div class="bookmark-tree" id="bookmark-tree"></div>
+              <p class="settings__empty" id="bookmarks-empty">Noch keine Lesezeichen.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="history" hidden>
+              <h3 class="settings__heading">Verlauf</h3>
+              <p class="settings__hint">Durchsuche besuchte Seiten und lösche Einträge.</p>
+              <div class="settings__actions">
+                <input class="text-input" id="history-search" type="text" placeholder="Verlauf durchsuchen …" autocomplete="off" />
+                <button class="btn-ghost" id="history-clear" type="button">Verlauf löschen</button>
+              </div>
+              <div class="history-list" id="history-list"></div>
+              <p class="settings__empty" id="history-empty">Noch keine Einträge.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="downloads" hidden>
+              <h3 class="settings__heading">Downloads</h3>
+              <p class="settings__hint">Laufende und abgeschlossene Downloads.</p>
+              <div class="download-list" id="download-list"></div>
+              <p class="settings__empty" id="downloads-empty">Keine Downloads.</p>
+            </section>
+
+            <section class="settings__panel" data-panel="privacy" hidden>
+              <h3 class="settings__heading">Datenschutz</h3>
+              <p class="settings__hint">Adblocker und Tracking-Schutz für schnellere und sicherere Seiten.</p>
+
+              <label class="switch-row" for="setting-adblock">
+                <span class="switch-row__text">
+                  <span class="switch-row__title">Adblocker aktivieren</span>
+                  <span class="switch-row__sub">Blockiert Werbung und Tracker (EasyList + EasyPrivacy).</span>
+                </span>
+                <input class="switch" id="setting-adblock" type="checkbox" checked />
+              </label>
+
+              <label class="switch-row" for="setting-tracking">
+                <span class="switch-row__text">
+                  <span class="switch-row__title">Tracking-Schutz</span>
+                  <span class="switch-row__sub">Blockiert Drittanbieter-Tracking und Fingerprinting.</span>
+                </span>
+                <input class="switch" id="setting-tracking" type="checkbox" checked />
+              </label>
+            </section>
+
+            <section class="settings__panel" data-panel="extensions" hidden>
+              <h3 class="settings__heading">Erweiterungen</h3>
+              <p class="settings__hint">Entpackte Erweiterungen (Manifest-Ordner) laden. Sie werden beim Start automatisch wieder aktiviert.</p>
+              <div class="settings__actions">
+                <button class="btn-ghost" id="extensions-load" type="button">Erweiterung laden</button>
+              </div>
+              <div class="settings__actions">
+                <input class="text-input" type="text" id="extension-store-input" placeholder="Chrome Web Store URL oder Erweiterungs-ID" spellcheck="false" aria-label="Chrome Web Store URL oder Erweiterungs-ID" />
+                <button class="btn-ghost" id="extension-store-install" type="button">Aus Web Store installieren</button>
+              </div>
+              <p class="settings__hint" id="extensions-hint">Unterstützt werden entpackte Erweiterungen (Ordner mit <code>manifest.json</code>), <code>.crx</code>- und <code>.zip</code>-Dateien sowie Chrome Web Store Erweiterungen (URL oder 32-stellige ID).</p>
+              <div class="extension-list" id="extension-list"></div>
+              <p class="settings__empty" id="extensions-empty">Noch keine Erweiterungen geladen.</p>
+              <p class="settings__status" id="extensions-status" hidden></p>
+            </section>
+
+            <section class="settings__panel" data-panel="hotkeys" hidden>
+              <h3 class="settings__heading">Tastenkombinationen</h3>
+              <p class="settings__hint">Aktion anklicken und neue Kombination drücken. Esc bricht ab, Entfernen löscht die Belegung.</p>
+              <div class="hotkey-list" id="hotkey-list"></div>
+              <p class="hotkey-conflict" id="hotkey-conflict" role="alert" hidden></p>
+              <div class="settings__actions">
+                <button class="btn-ghost" id="hotkeys-reset" type="button">Standard-Hotkeys wiederherstellen</button>
+              </div>
+            </section>
+
+            <section class="settings__panel" data-panel="about" hidden>
+              <h3 class="settings__heading">JTech Browser</h3>
+              <p class="settings__hint">Gaming-orientierter Browser auf Electron-Basis.</p>
+
+              <div class="about">
+                <div class="about__row"><span>Version</span><strong id="settings-version">0.1.0</strong></div>
+                <div class="about__row"><span>Startseite</span><strong>jtech://newtab</strong></div>
+                <div class="about__row"><span>Einstellungen</span><strong>%APPDATA%\JTech Browser</strong></div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <footer class="studio__foot">
+          <p class="studio__hint">Änderungen werden automatisch gespeichert.</p>
+          <button class="btn-ghost" id="settings-done" type="button">Fertig</button>
+        </footer>
+      </div>
+    </section>
+
+    <section class="tab-search" id="tab-search" hidden aria-hidden="true">
+      <div class="tab-search__sheet" role="dialog" aria-modal="true" aria-labelledby="tab-search-title">
+        <h2 class="tab-search__title" id="tab-search-title">Tabs suchen</h2>
+        <input class="tab-search__input" id="tab-search-input" type="text" placeholder="Titel oder Adresse …" autocomplete="off" aria-label="Tabs filtern" />
+        <div class="tab-search__results" id="tab-search-results" role="listbox" aria-label="Offene Tabs"></div>
+        <p class="tab-search__empty" id="tab-search-empty" hidden>Keine passenden Tabs.</p>
+        <p class="tab-search__hint">↑↓ auswählen · Enter öffnen · Esc schließen</p>
+      </div>
+    </section>
+
+    <div class="context-menu" id="context-menu" role="menu" hidden></div>
+
+    <section class="command-palette" id="command-palette" hidden aria-hidden="true">
+      <div class="command-palette__sheet" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+        <h2 class="command-palette__title" id="command-palette-title" hidden>Befehlspalette</h2>
+        <input class="command-palette__input" id="command-palette-input" type="text" placeholder="Tabs, Favoriten, Verlauf, Einstellungen …" autocomplete="off" aria-label="Befehle suchen" />
+        <div class="command-palette__results" id="command-palette-results" role="listbox"></div>
+        <p class="command-palette__empty" id="command-palette-empty" hidden>Keine Treffer.</p>
+        <p class="command-palette__hint">↑↓ auswählen · Enter ausführen · Esc schließen</p>
+      </div>
+    </section>
+
+    <script src="../shared/cursor-fx.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

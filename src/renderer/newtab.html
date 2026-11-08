@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Neuer Tab</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a0a0f;
+        --accent: #ff6b35;
+        --accent-alt: #00d4aa;
+        --text: #e4e4ec;
+        --text-dim: #8a8a9a;
+        --text-faint: #555566;
+        --blur: 20px;
+        --radius-lg: 16px;
+        --panel: rgba(255, 255, 255, 0.04);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body { height: 100%; }
+
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif);
+        cursor: default;
+      }
+
+      .bg {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(1000px 700px at 15% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+          radial-gradient(900px 700px at 88% 12%, color-mix(in srgb, var(--accent-alt) 18%, transparent), transparent 62%),
+          radial-gradient(800px 600px at 50% 105%, color-mix(in srgb, var(--accent-warm) 10%, transparent), transparent 65%),
+          linear-gradient(180deg, color-mix(in srgb, var(--bg) 85%, #101526), var(--bg));
+      }
+
+      .grid {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(ellipse 85% 70% at 50% 18%, #000 15%, transparent 76%);
+      }
+
+      main {
+        position: relative;
+        width: min(720px, 86vw);
+        padding: 32px;
+        text-align: center;
+        animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+
+      .clock {
+        font-size: 12px;
+        letter-spacing: 4px;
+        color: var(--text-dim);
+        font-variant-numeric: tabular-nums;
+        margin-bottom: 18px;
+      }
+
+      .logo-mark {
+        width: 96px;
+        height: 96px;
+        margin: 0 0 14px;
+        object-fit: contain;
+        filter: drop-shadow(0 0 28px color-mix(in srgb, var(--accent) 45%, transparent));
+      }
+
+      .greeting {
+        margin: 12px 0 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-dim);
+      }
+
+      .shortcuts {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 32px;
+      }
+
+      .shortcuts .chip {
+        padding: 6px 12px;
+        border: 1px solid var(--stroke, rgba(255,255,255,0.1));
+        border-radius: 999px;
+        background: var(--panel);
+        font-size: 11px;
+        color: var(--text-dim);
+      }
+
+      .logo {
+        margin: 0;
+        font-size: clamp(42px, 8vw, 82px);
+        font-weight: 800;
+        letter-spacing: 0.2em;
+        /* optischer Ausgleich für den letzten Buchstaben */
+        text-indent: 0.2em;
+        background: linear-gradient(
+          100deg,
+          #ffffff 4%,
+          color-mix(in srgb, var(--accent) 62%, #ffffff) 34%,
+          color-mix(in srgb, var(--accent-alt) 62%, #ffffff) 68%,
+          #ffffff 96%
+        );
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 0 34px color-mix(in srgb, var(--accent) 24%, transparent));
+      }
+
+      .eyebrow {
+        margin: 6px 0 0;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 7px;
+        text-indent: 7px;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--accent) 65%, var(--text-dim));
+      }
+
+      .tagline {
+        margin: 14px 0 0;
+        font-size: 14px;
+        letter-spacing: 0.4px;
+        color: var(--text-dim);
+      }
+
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        height: 62px;
+        margin-top: 40px;
+        padding: 0 22px;
+        border: 1px solid var(--stroke, rgba(255, 255, 255, 0.14));
+        border-radius: var(--radius-lg);
+        background: var(--panel);
+        backdrop-filter: blur(var(--blur)) saturate(var(--saturation, 180%));
+        -webkit-backdrop-filter: blur(var(--blur)) saturate(var(--saturation, 180%));
+        box-shadow:
+          0 24px 60px rgba(0, 0, 0, 0.4),
+          0 0 40px color-mix(in srgb, var(--accent) 8%, transparent),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        transition: border-color var(--transition-normal, 0.2s ease), box-shadow var(--transition-normal, 0.2s ease), transform var(--transition-fast, 0.12s ease);
+      }
+
+      .search:hover {
+        border-color: var(--stroke-strong, rgba(255, 255, 255, 0.2));
+        transform: translateY(-1px);
+      }
+
+      .search:focus-within {
+        border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+        box-shadow:
+          0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent),
+          0 0 44px color-mix(in srgb, var(--accent) 20%, transparent),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      }
+
+      .search svg { flex: 0 0 auto; color: var(--text-dim); }
+
+      .search input {
+        flex: 1 1 auto;
+        min-width: 0;
+        height: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: var(--text);
+        font-family: inherit;
+        font-size: 15.5px;
+      }
+
+      .search input::placeholder { color: var(--text-faint); }
+
+      kbd {
+        flex: 0 0 auto;
+        padding: 4px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.28);
+        font-family: inherit;
+        font-size: 10.5px;
+        letter-spacing: 0.6px;
+        color: var(--text-dim);
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 30px;
+      }
+
+      .chip {
+        padding: 7px 13px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        background: var(--panel);
+        font-size: 11.5px;
+        letter-spacing: 0.3px;
+        color: var(--text-dim);
+      }
+
+      .chip:hover {
+        border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+        color: var(--text);
+      }
+
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        main { animation: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true"></div>
+    <div class="grid" aria-hidden="true"></div>
+
+    <main>
+      <div class="clock" id="clock">--:--</div>
+      <p class="greeting" id="greeting">Willkommen</p>
+      <p class="tagline">JTech, dein Browser, deine Regeln.</p>
+
+      <form class="search" id="search">
+        <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true">
+          <circle cx="9" cy="9" r="5.4" fill="none" stroke="currentColor" stroke-width="1.7" />
+          <path d="M13.2 13.2L17 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+        </svg>
+        <input
+          id="q"
+          type="text"
+          placeholder="Suchen oder Adresse eingeben"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="Suchen oder Adresse eingeben"
+        />
+        <kbd>Enter</kbd>
+      </form>
+
+      <div class="shortcuts" id="shortcuts"></div>
+    </main>
+
+    <script>
+      const clock = document.getElementById('clock');
+
+      function tick() {
+        clock.textContent = new Date().toLocaleTimeString('de-DE', {
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+
+      const userName = (window.__JTECH_USER__ || '').trim();
+      const greeting = document.getElementById('greeting');
+      if (userName) greeting.textContent = `Willkommen, ${userName}`;
+      else greeting.textContent = 'Willkommen';
+
+      window.renderShortcuts = function() {
+        const container = document.getElementById('shortcuts');
+        if (!container) return;
+        container.replaceChildren();
+        const shortcuts = window.__JTECH_SHORTCUTS__ || [];
+        if (!shortcuts.length) {
+          const hint = document.createElement('span');
+          hint.className = 'chip';
+          hint.textContent = 'Keine Shortcuts – in den Einstellungen hinzufügen';
+          container.appendChild(hint);
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        for (const s of shortcuts) {
+          const a = document.createElement('a');
+          a.className = 'chip';
+          a.href = s.url;
+          a.textContent = s.title || s.url;
+          a.target = '_self';
+          fragment.appendChild(a);
+        }
+        container.appendChild(fragment);
+      };
+      window.renderShortcuts();
+
+      tick();
+      setInterval(tick, 15000);
+
+      document.getElementById('search').addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const value = document.getElementById('q').value.trim();
+        if (!value) return;
+
+        const explicitUrl = /^https?:\/\//i.test(value);
+        const looksLikeHost = !/\s/.test(value) && /^[^\s/]+\.[^\s/]{2,}/.test(value);
+
+        // JTech Bangs
+        if (value.startsWith('!')) {
+          const m = value.match(/^!(\S+)(?:\s+(.*))?$/);
+          if (m) {
+            const bang = m[1].toLowerCase();
+            const query = (m[2] || '').trim();
+            const enc = encodeURIComponent(query);
+            const custom = (window.__JTECH_BANGS__ || []).find((b) => b.trigger === bang);
+            if (custom) { location.href = custom.urlTemplate.replace('%s', enc); return; }
+            const builtins = {
+              yt: 'https://www.youtube.com/results?search_query=',
+              youtube: 'https://www.youtube.com/results?search_query=',
+              'yt-d': 'https://www.youtube.com/results?search_query=',
+              ytd: 'https://www.youtube.com/results?search_query=',
+              g: 'https://www.google.com/search?q=',
+              google: 'https://www.google.com/search?q=',
+              ddg: 'https://duckduckgo.com/?q=',
+              gh: 'https://github.com/search?q=',
+              github: 'https://github.com/search?q='
+            };
+            if (builtins[bang]) {
+              let url = builtins[bang] + enc;
+              if (bang === 'yt-d' || bang === 'ytd') url += '&sp=EgIIAQ%3D%3D';
+              location.href = url;
+              return;
+            }
+          }
+        }
+
+        if (explicitUrl || looksLikeHost) {
+          location.href = explicitUrl ? value : 'https://' + value;
+        } else {
+          const template = window.__JTECH_SEARCH__ || 'https://www.google.com/search?q=%s';
+          location.href = template.replace('%s', encodeURIComponent(value));
+        }
+      });
+
+      document.getElementById('q').focus();
+    </script>
+  </body>
+</html>

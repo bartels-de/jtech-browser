@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34" fill="none">
+  <rect width="34" height="34" rx="8" fill="url(#grad)" fill-opacity="0.9"/>
+  <text x="17" y="24" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="800" fill="#fff">JT</text>
+  <defs>
+    <linearGradient id="grad" x1="0" y1="0" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6b35"/>
+      <stop offset="1" stop-color="#00d4aa"/>
+    </linearGradient>
+  </defs>
+</svg>

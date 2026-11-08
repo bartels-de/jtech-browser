@@ -1,0 +1,58 @@
+{
+  "name": "jtech-browser",
+  "productName": "JTech Browser",
+  "version": "0.7.0",
+  "description": "Gaming-orientierter Browser auf Electron-Basis",
+  "main": "src/main/main.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "test": "node --test tests",
+    "build": "electron-builder",
+    "build:dir": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.jtech.browser",
+    "productName": "JTech Browser",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "icon": "src/renderer/assets/logo-256.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": {
+      "provider": "generic",
+      "url": "https://updates.jtech-browser.example/"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.20.3",
+    "adm-zip": "^0.6.1",
+    "electron-chrome-extensions": "^4.10.0",
+    "electron-updater": "^6.8.11"
+  }
+}
