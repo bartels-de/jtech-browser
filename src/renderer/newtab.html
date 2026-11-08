@@ -7,11 +7,11 @@
     <style>
       :root {
         color-scheme: dark;
-        --bg: #0a0a0f;
-        --accent: #ff6b35;
-        --accent-alt: #00d4aa;
-        --text: #e4e4ec;
-        --text-dim: #8a8a9a;
+        --bg: #0b0d17;
+        --accent: #7c6cff;
+        --accent-alt: #22d3ee;
+        --text: #e7e9f5;
+        --text-dim: #8b90ab;
         --text-faint: #555566;
         --blur: 20px;
         --radius-lg: 16px;
@@ -36,6 +36,7 @@
       .bg {
         position: fixed;
         inset: 0;
+        overflow: hidden;
         background:
           radial-gradient(1000px 700px at 15% -8%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
           radial-gradient(900px 700px at 88% 12%, color-mix(in srgb, var(--accent-alt) 18%, transparent), transparent 62%),
@@ -43,22 +44,25 @@
           linear-gradient(180deg, color-mix(in srgb, var(--bg) 85%, #101526), var(--bg));
       }
 
-      .grid {
-        position: fixed;
-        inset: 0;
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px);
-        background-size: 64px 64px;
-        mask-image: radial-gradient(ellipse 85% 70% at 50% 18%, #000 15%, transparent 76%);
-      }
 
       main {
         position: relative;
+        z-index: 1;
+        isolation: isolate;
         width: min(720px, 86vw);
         padding: 32px;
         text-align: center;
         animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      }
+
+      /* Weicher Schleier hinter dem Inhalt, damit Text auf jedem Hintergrund lesbar bleibt. */
+      main::before {
+        content: "";
+        position: absolute;
+        inset: -70px -140px;
+        z-index: -1;
+        background: radial-gradient(closest-side, color-mix(in srgb, var(--bg) 72%, transparent), transparent);
+        pointer-events: none;
       }
 
       .clock {
@@ -233,7 +237,6 @@
   </head>
   <body>
     <div class="bg" aria-hidden="true"></div>
-    <div class="grid" aria-hidden="true"></div>
 
     <main>
       <div class="clock" id="clock">--:--</div>

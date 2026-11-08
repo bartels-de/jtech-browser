@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { app } = require('electron');
+const { IDS: BACKGROUND_IDS, DEFAULT_ID: DEFAULT_BACKGROUND } = require('../shared/backgrounds');
 
 /**
  * Persistente Einstellungen.
@@ -77,32 +78,32 @@ const DEFAULT_SETTINGS = {
   extensions: [],
   zoom: {},
   theme: {
-    // Obsidian-Design: warmer Akzent auf tiefem Anthrazit.
-    accent: '#ff6b35',
-    accentAlt: '#00d4aa',
-    bg: '#0a0a0f',
-    text: '#e4e4ec',
-    textDim: '#8a8a9a',
-    stroke: 8,
-    shadow: 35,
-    saturation: 180,
+    // „Nova“: Violett und Cyan auf tiefem Nachtblau.
+    accent: '#7c6cff',
+    accentAlt: '#22d3ee',
+    bg: '#0b0d17',
+    text: '#e7e9f5',
+    textDim: '#8b90ab',
+    stroke: 9,
+    shadow: 34,
+    saturation: 160,
     font: 'system',
     fontSize: 100,
     wallpaper: '',
-    glass: 0.72,
-    blur: 20,
-    radius: 10,
+    glass: 0.7,
+    blur: 22,
+    radius: 12,
     // Stil-Aspekte
     style: 'default',
-    bgAnimation: 'aurora',
+    bgAnimation: DEFAULT_BACKGROUND,
     animationSpeed: 100,
-    animationIntensity: 50,
+    animationIntensity: 55,
     glowIntensity: 50,
     transitionSpeed: 100,
     borderStyle: 'default',
     // Cursor-Effekte (Design-Studio)
     cursorEffect: 'none',
-    cursorColor: '#ff6b35',
+    cursorColor: '#7c6cff',
     cursorSize: 16,
     cursorIntensity: 60,
     cursorImage: '',
@@ -183,7 +184,11 @@ function normalizeCss(value) {
 }
 
 const ALLOWED_STYLES = ['default', 'clean', 'animated', 'gaming', 'minimal'];
-const ALLOWED_BG_ANIMATIONS = ['none', 'orbs', 'particles', 'waves', 'mesh', 'noise', 'aurora', 'grid', 'stars', 'matrix', 'pulse', 'fog'];
+// Einzige Quelle: src/shared/backgrounds.js
+const ALLOWED_BG_ANIMATIONS = BACKGROUND_IDS;
+
+// Version 2: neue Presets und Hintergründe. Ältere Themes werden beim Start ersetzt.
+const THEME_VERSION = 2;
 const ALLOWED_BORDER_STYLES = ['default', 'thin', 'glow', 'none'];
 const ALLOWED_CURSOR_EFFECTS = ['none', 'trail', 'sparks', 'comet', 'ripple', 'laser', 'bubbles'];
 
@@ -736,6 +741,18 @@ function loadSettings() {
   cached.shortcuts = normalizeShortcuts(cached.shortcuts);
   cached.bangs = normalizeBangs(cached.bangs);
   cached.customThemes = normalizeCustomThemes(cached.customThemes);
+  if (stored.themeVersion !== THEME_VERSION) {
+    // Theme-Neustart: alte Themes und eigene Themes entfernen,
+    // nur eigenes CSS bleibt erhalten.
+    const previous = cached.theme && typeof cached.theme === 'object' ? cached.theme : {};
+    cached.theme = {
+      ...DEFAULT_SETTINGS.theme,
+      customCssChrome: previous.customCssChrome || '',
+      customCssNewtab: previous.customCssNewtab || ''
+    };
+    cached.customThemes = [];
+  }
+  cached.themeVersion = THEME_VERSION;
   cached.bookmarks = normalizeBookmarks(cached.bookmarks);
   cached.bookmarkFolders = normalizeBookmarkFolders(cached.bookmarkFolders);
   cached.tabGroups = normalizeTabGroups(cached.tabGroups);
@@ -1087,6 +1104,7 @@ module.exports = {
   buildSearchUrl,
   settingsPath,
   SEARCH_ENGINES,
+  THEME_VERSION,
   TAB_LAYOUTS,
   DEFAULT_SETTINGS
 };

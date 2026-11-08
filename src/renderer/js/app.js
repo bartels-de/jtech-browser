@@ -57,16 +57,21 @@ const els = {
   studioOpen: document.getElementById('studio-open'),
   studioClose: document.getElementById('studio-close'),
   presetGrid: document.getElementById('preset-grid'),
+  customThemeGrid: document.getElementById('custom-theme-grid'),
+  customThemeEmpty: document.getElementById('custom-theme-empty'),
   saveCustomTheme: document.getElementById('save-custom-theme'),
   themeSaveForm: document.getElementById('theme-save-form'),
   themeSaveName: document.getElementById('theme-save-name'),
-  themeSaveConfirm: document.getElementById('theme-save-confirm'),
   themeSaveCancel: document.getElementById('theme-save-cancel'),
   themeStatus: document.getElementById('theme-status'),
   themeReset: document.getElementById('theme-reset'),
   themeTabs: document.getElementById('theme-tabs'),
-  themeTabButtons: [...document.querySelectorAll('.studio__tab')],
-  themeTabPanels: [...document.querySelectorAll('.studio__tab-panel')],
+  themeTabButtons: [...document.querySelectorAll('.ds-tab')],
+  themeTabPanels: [...document.querySelectorAll('.ds-panel')],
+  previewBackground: document.getElementById('ds-preview-bg'),
+  bgGallery: document.getElementById('bg-gallery'),
+  wallpaperField: document.getElementById('wallpaper-field'),
+  animationControls: document.getElementById('animation-controls'),
 
   themeAccent: document.getElementById('theme-accent'),
   themeAccentHex: document.getElementById('theme-accent-hex'),
@@ -76,45 +81,16 @@ const els = {
   themeBgHex: document.getElementById('theme-bg-hex'),
   themeText: document.getElementById('theme-text'),
   themeTextHex: document.getElementById('theme-text-hex'),
-  themeTextDim: document.getElementById('theme-text-dim'),
-  themeTextDimHex: document.getElementById('theme-text-dim-hex'),
-  themeGlass: document.getElementById('theme-glass'),
-  themeBlur: document.getElementById('theme-blur'),
-  themeRadius: document.getElementById('theme-radius'),
-  themeStroke: document.getElementById('theme-stroke'),
-  themeShadow: document.getElementById('theme-shadow'),
-  themeSaturation: document.getElementById('theme-saturation'),
-  themeFont: document.getElementById('theme-font'),
-  themeFontSize: document.getElementById('theme-font-size'),
-  themeWallpaper: document.getElementById('theme-wallpaper'),
-  themeCssChrome: document.getElementById('theme-css-chrome'),
-  themeCssNewtab: document.getElementById('theme-css-newtab'),
-  glassValue: document.getElementById('glass-value'),
-  blurValue: document.getElementById('blur-value'),
-  radiusValue: document.getElementById('radius-value'),
-  strokeValue: document.getElementById('stroke-value'),
-  shadowValue: document.getElementById('shadow-value'),
-  saturationValue: document.getElementById('saturation-value'),
-  fontSizeValue: document.getElementById('font-size-value'),
-  themeStyle: document.getElementById('theme-style'),
-  themeBgAnimation: document.getElementById('theme-bg-animation'),
-  themeAnimationSpeed: document.getElementById('theme-animation-speed'),
-  themeAnimationIntensity: document.getElementById('theme-animation-intensity'),
-  themeGlowIntensity: document.getElementById('theme-glow-intensity'),
-  themeTransitionSpeed: document.getElementById('theme-transition-speed'),
-  themeBorderStyle: document.getElementById('theme-border-style'),
-  themeCursorEffect: document.getElementById('theme-cursor-effect'),
   themeCursorColor: document.getElementById('theme-cursor-color'),
   themeCursorColorHex: document.getElementById('theme-cursor-color-hex'),
-  themeCursorSize: document.getElementById('theme-cursor-size'),
-  themeCursorIntensity: document.getElementById('theme-cursor-intensity'),
+  themeWallpaper: document.getElementById('theme-wallpaper'),
+  themeStyle: document.getElementById('theme-style'),
+  themeFont: document.getElementById('theme-font'),
+  themeBorderStyle: document.getElementById('theme-border-style'),
+  themeCursorEffect: document.getElementById('theme-cursor-effect'),
   themeCursorImage: document.getElementById('theme-cursor-image'),
-  cursorSizeValue: document.getElementById('cursor-size-value'),
-  cursorIntensityValue: document.getElementById('cursor-intensity-value'),
-  animationSpeedValue: document.getElementById('animation-speed-value'),
-  animationIntensityValue: document.getElementById('animation-intensity-value'),
-  glowIntensityValue: document.getElementById('glow-intensity-value'),
-  transitionSpeedValue: document.getElementById('transition-speed-value'),
+  themeCssChrome: document.getElementById('theme-css-chrome'),
+  themeCssNewtab: document.getElementById('theme-css-newtab'),
   themeExport: document.getElementById('theme-export'),
   themeImport: document.getElementById('theme-import'),
   themeImportInput: document.getElementById('theme-import-input'),
@@ -802,29 +778,29 @@ function render(forceOmnibox = false) {
 /* ---------------------------------------------------------------- Theme */
 
 const DEFAULT_THEME = {
-  accent: '#ff6b35',
-  accentAlt: '#00d4aa',
-  bg: '#0a0a0f',
-  text: '#e4e4ec',
-  textDim: '#8a8a9a',
-  stroke: 8,
-  shadow: 35,
-  saturation: 180,
+  accent: '#7c6cff',
+  accentAlt: '#22d3ee',
+  bg: '#0b0d17',
+  text: '#e7e9f5',
+  textDim: '#8b90ab',
+  stroke: 9,
+  shadow: 34,
+  saturation: 160,
   font: 'system',
   fontSize: 100,
   wallpaper: '',
-  glass: 0.72,
-  blur: 20,
-  radius: 10,
+  glass: 0.7,
+  blur: 22,
+  radius: 12,
   style: 'default',
-  bgAnimation: 'aurora',
+  bgAnimation: 'constellation',
   animationSpeed: 100,
-  animationIntensity: 50,
+  animationIntensity: 55,
   glowIntensity: 50,
   transitionSpeed: 100,
   borderStyle: 'default',
   cursorEffect: 'none',
-  cursorColor: '#ff6b35',
+  cursorColor: '#7c6cff',
   cursorSize: 16,
   cursorIntensity: 60,
   cursorImage: '',
@@ -833,86 +809,106 @@ const DEFAULT_THEME = {
   customCssNewtab: ''
 };
 
-const STYLE_PRESETS = [
-  {
-    id: 'default',
-    name: 'Standard',
-    description: 'Ausgewogene Mischung aus Glass-Effekten und Animationen'
-  },
-  {
-    id: 'clean',
-    name: 'Aufgeräumt',
-    description: 'Reduziertes Chrome, dezente Übergänge, weniger Glow'
-  },
-  {
-    id: 'animated',
-    name: 'Animation',
-    description: 'Mehr Bewegung, pulsierende Glows und weiche Übergänge'
-  },
-  {
-    id: 'gaming',
-    name: 'Gaming',
-    description: 'Starker Kontrast, intensive Glows und scharfe Kanten'
-  },
-  {
-    id: 'minimal',
-    name: 'Minimal',
-    description: 'Ultra-reduziert, dünne Rahmen, kompaktes Layout'
-  }
-];
+const THEME_STYLES = ['default', 'clean', 'animated', 'gaming', 'minimal'];
+const THEME_FONTS = ['system', 'mono'];
+const BORDER_STYLES = ['default', 'thin', 'glow', 'none'];
+const CURSOR_EFFECTS = ['none', 'trail', 'sparks', 'comet', 'ripple', 'laser', 'bubbles'];
 
-const BG_ANIMATIONS = [
-  { id: 'none', name: 'Keine' },
-  { id: 'orbs', name: 'Orbs' },
-  { id: 'particles', name: 'Partikel' },
-  { id: 'waves', name: 'Wellen' },
-  { id: 'mesh', name: 'Mesh' },
-  { id: 'noise', name: 'Rauschen' },
-  { id: 'aurora', name: 'Aurora' },
-  { id: 'grid', name: 'Grid' },
-  { id: 'stars', name: 'Sterne' },
-  { id: 'matrix', name: 'Matrix' },
-  { id: 'pulse', name: 'Puls' },
-  { id: 'fog', name: 'Nebel' }
-];
+// Hintergründe kommen aus src/shared/backgrounds.js (eine Quelle für UI, Startseite und Validierung).
+const BG_ANIMATIONS = window.JTechBackgrounds?.LIST || [{ id: 'none', name: 'Ruhig', description: '' }];
 
-const BORDER_STYLES = [
-  { id: 'default', name: 'Standard' },
-  { id: 'thin', name: 'Dünn' },
-  { id: 'glow', name: 'Glow' },
-  { id: 'none', name: 'Kein Rand' }
-];
+// Presets setzen alle Werte außer eigenem CSS und Cursor-Bild.
+const preset = (id, name, overrides) => ({ id, name, theme: { ...DEFAULT_THEME, ...overrides } });
 
 const PRESETS = [
-  {
-    id: 'aurora',
-    name: 'Aurora',
-    theme: { accent: '#7c5cff', accentAlt: '#22d3ee', bg: '#07061a', text: '#eaeaff', textDim: '#9a96c8', stroke: 8, shadow: 40, saturation: 190, font: 'system', fontSize: 100, wallpaper: '', glass: 0.72, blur: 22, radius: 14, style: 'animated', bgAnimation: 'aurora', animationSpeed: 100, animationIntensity: 60, glowIntensity: 70, transitionSpeed: 110, borderStyle: 'glow', cursorEffect: 'trail', cursorColor: '#7c5cff', cursorSize: 18, cursorIntensity: 70, cursorImage: '', customCssChrome: '', customCssNewtab: '' }
-  },
-  {
-    id: 'midnight',
-    name: 'Midnight',
-    theme: { accent: '#00d4aa', accentAlt: '#00b4d8', bg: '#050a0f', text: '#e4f0f5', textDim: '#7a98a8', stroke: 9, shadow: 38, saturation: 190, font: 'system', fontSize: 100, wallpaper: '', glass: 0.75, blur: 24, radius: 12, style: 'default', bgAnimation: 'mesh', animationSpeed: 90, animationIntensity: 45, glowIntensity: 45, transitionSpeed: 100, borderStyle: 'default', cursorEffect: 'none', cursorColor: '#00d4aa', cursorSize: 16, cursorIntensity: 60, cursorImage: '', customCssChrome: '', customCssNewtab: '' }
-  },
-  {
-    id: 'ember',
-    name: 'Ember',
-    theme: { accent: '#ff4500', accentAlt: '#ff8c00', bg: '#0f0805', text: '#f0e6e1', textDim: '#a08074', stroke: 7, shadow: 32, saturation: 150, font: 'system', fontSize: 100, wallpaper: '', glass: 0.7, blur: 18, radius: 8, style: 'animated', bgAnimation: 'grid', animationSpeed: 110, animationIntensity: 55, glowIntensity: 60, transitionSpeed: 110, borderStyle: 'glow', cursorEffect: 'sparks', cursorColor: '#ff4500', cursorSize: 16, cursorIntensity: 60, cursorImage: '', customCssChrome: '', customCssNewtab: '' }
-  },
-  {
-    id: 'minimal',
-    name: 'Minimal',
-    theme: { accent: '#94a3b8', accentAlt: '#64748b', bg: '#0c0c10', text: '#e2e4e9', textDim: '#828796', stroke: 5, shadow: 20, saturation: 120, font: 'system', fontSize: 96, wallpaper: '', glass: 0.78, blur: 16, radius: 8, style: 'minimal', bgAnimation: 'none', animationSpeed: 100, animationIntensity: 0, glowIntensity: 20, transitionSpeed: 80, borderStyle: 'thin', cursorEffect: 'none', cursorColor: '#94a3b8', cursorSize: 16, cursorIntensity: 40, cursorImage: '', customCssChrome: '', customCssNewtab: '' }
-  }
+  preset('nova', 'Nova', {}),
+  preset('synthwave', 'Synthwave', {
+    accent: '#ff3d9a', accentAlt: '#ffb86b', bg: '#140a24', text: '#f6e9ff', textDim: '#a98fc0',
+    style: 'gaming', bgAnimation: 'synthwave', glowIntensity: 75, glass: 0.66, blur: 20, radius: 10,
+    borderStyle: 'glow', saturation: 180, animationIntensity: 60, cursorEffect: 'trail', cursorColor: '#ff3d9a'
+  }),
+  preset('toxic', 'Toxic', {
+    accent: '#39ff88', accentAlt: '#00e5ff', bg: '#060d0a', text: '#e6fff1', textDim: '#7fa894',
+    style: 'gaming', bgAnimation: 'hexgrid', glowIntensity: 70, radius: 6, borderStyle: 'glow',
+    animationIntensity: 60, cursorEffect: 'sparks', cursorColor: '#39ff88'
+  }),
+  preset('inferno', 'Inferno', {
+    accent: '#ff5a1f', accentAlt: '#ffc23d', bg: '#100806', text: '#fdeee6', textDim: '#a8877a',
+    style: 'animated', bgAnimation: 'embers', glowIntensity: 60, radius: 10, animationIntensity: 60,
+    cursorColor: '#ff5a1f'
+  }),
+  preset('hyperdrive', 'Hyperdrive', {
+    accent: '#4cc9ff', accentAlt: '#c77dff', bg: '#05060d', text: '#e8f3ff', textDim: '#8494ad',
+    style: 'gaming', bgAnimation: 'hyperdrive', glowIntensity: 65, radius: 8, borderStyle: 'glow',
+    cursorEffect: 'comet', cursorColor: '#4cc9ff'
+  }),
+  preset('abyss', 'Abyss', {
+    accent: '#00e0c6', accentAlt: '#3aa0ff', bg: '#04121a', text: '#e2f6f7', textDim: '#7fa2aa',
+    bgAnimation: 'flowfield', glowIntensity: 45, radius: 14, animationIntensity: 50, cursorColor: '#00e0c6'
+  }),
+  preset('sakura', 'Sakura', {
+    accent: '#ff8fb8', accentAlt: '#b69cff', bg: '#150d14', text: '#fbeef4', textDim: '#ab8f9f',
+    style: 'clean', bgAnimation: 'nebula', glowIntensity: 40, radius: 16, animationIntensity: 55,
+    cursorColor: '#ff8fb8'
+  }),
+  preset('forest', 'Forest', {
+    accent: '#6fcf97', accentAlt: '#d4e79e', bg: '#0a120e', text: '#e8f2ea', textDim: '#8aa394',
+    style: 'clean', bgAnimation: 'ribbons', glowIntensity: 30, radius: 14, animationSpeed: 70,
+    animationIntensity: 45, cursorColor: '#6fcf97'
+  }),
+  preset('graphite', 'Graphite', {
+    accent: '#a5b4cb', accentAlt: '#6b7a90', bg: '#101113', text: '#e4e6ea', textDim: '#878b94',
+    style: 'minimal', bgAnimation: 'none', glowIntensity: 15, radius: 8, glass: 0.8, blur: 16,
+    borderStyle: 'thin', shadow: 20, saturation: 120, transitionSpeed: 80, cursorColor: '#a5b4cb'
+  }),
+  preset('paper', 'Paper', {
+    accent: '#3b5bfd', accentAlt: '#12b5a6', bg: '#eef0f5', text: '#1b1f2a', textDim: '#5d6475',
+    style: 'clean', bgAnimation: 'constellation', glowIntensity: 20, radius: 12, glass: 0.72, blur: 18,
+    stroke: 12, shadow: 14, saturation: 130, animationIntensity: 35, cursorColor: '#3b5bfd'
+  }),
+  preset('daylight', 'Daylight', {
+    accent: '#e4572e', accentAlt: '#f3a712', bg: '#f6efe5', text: '#2a2118', textDim: '#6f6253',
+    bgAnimation: 'ribbons', glowIntensity: 20, radius: 14, glass: 0.74, stroke: 12, shadow: 16,
+    saturation: 130, animationIntensity: 35, animationSpeed: 70, cursorColor: '#e4572e'
+  })
 ];
 
+// Diese Werte gehören dem Nutzer und bleiben beim Wechsel des Presets erhalten.
+const PERSONAL_THEME_KEYS = ['customCssChrome', 'customCssNewtab', 'cursorImage'];
+
 const COLOR_CONTROLS = [
-  { key: 'accent', swatch: 'themeAccent', hex: 'themeAccentHex', label: 'Akzentfarbe' },
-  { key: 'accentAlt', swatch: 'themeAccentAlt', hex: 'themeAccentAltHex', label: 'Zweite Akzentfarbe' },
-  { key: 'bg', swatch: 'themeBg', hex: 'themeBgHex', label: 'Hintergrund' },
-  { key: 'text', swatch: 'themeText', hex: 'themeTextHex', label: 'Textfarbe' },
-  { key: 'textDim', swatch: 'themeTextDim', hex: 'themeTextDimHex', label: 'Gedämpfter Text' },
-  { key: 'cursorColor', swatch: 'themeCursorColor', hex: 'themeCursorColorHex', label: 'Effektfarbe' }
+  { key: 'accent', swatch: 'themeAccent', hex: 'themeAccentHex' },
+  { key: 'accentAlt', swatch: 'themeAccentAlt', hex: 'themeAccentAltHex' },
+  { key: 'bg', swatch: 'themeBg', hex: 'themeBgHex' },
+  { key: 'text', swatch: 'themeText', hex: 'themeTextHex' },
+  { key: 'cursorColor', swatch: 'themeCursorColor', hex: 'themeCursorColorHex' }
+];
+
+// Regler: Wert im Theme <-> Wert des Range-Inputs (glass wird in % angezeigt).
+const THEME_SLIDERS = [
+  { key: 'animationSpeed', input: 'theme-animation-speed', output: 'animation-speed-value', min: 0, max: 200, unit: '%' },
+  { key: 'animationIntensity', input: 'theme-animation-intensity', output: 'animation-intensity-value', min: 0, max: 100, unit: '%' },
+  { key: 'glass', input: 'theme-glass', output: 'glass-value', min: 20, max: 95, unit: '%', scale: 100 },
+  { key: 'blur', input: 'theme-blur', output: 'blur-value', min: 0, max: 60, unit: 'px' },
+  { key: 'radius', input: 'theme-radius', output: 'radius-value', min: 0, max: 28, unit: 'px' },
+  { key: 'glowIntensity', input: 'theme-glow-intensity', output: 'glow-intensity-value', min: 0, max: 100, unit: '%' },
+  { key: 'fontSize', input: 'theme-font-size', output: 'font-size-value', min: 80, max: 125, unit: '%' },
+  { key: 'cursorIntensity', input: 'theme-cursor-intensity', output: 'cursor-intensity-value', min: 0, max: 100, unit: '%' },
+  { key: 'cursorSize', input: 'theme-cursor-size', output: 'cursor-size-value', min: 2, max: 40, unit: 'px' },
+  { key: 'stroke', input: 'theme-stroke', output: 'stroke-value', min: 0, max: 30, unit: '%' },
+  { key: 'shadow', input: 'theme-shadow', output: 'shadow-value', min: 0, max: 80, unit: '%' },
+  { key: 'saturation', input: 'theme-saturation', output: 'saturation-value', min: 100, max: 300, unit: '%' },
+  { key: 'transitionSpeed', input: 'theme-transition-speed', output: 'transition-speed-value', min: 0, max: 200, unit: '%' }
+].map((slider) => ({
+  ...slider,
+  inputEl: document.getElementById(slider.input),
+  outputEl: document.getElementById(slider.output)
+}));
+
+const THEME_SEGMENTS = [
+  { key: 'style', el: 'themeStyle', allowed: THEME_STYLES },
+  { key: 'font', el: 'themeFont', allowed: THEME_FONTS },
+  { key: 'borderStyle', el: 'themeBorderStyle', allowed: BORDER_STYLES }
 ];
 
 const clamp = (value, min, max, fallback) => {
@@ -975,7 +971,9 @@ function applyTheme(input) {
 
   const rootStyle = document.documentElement.style;
   const rgb = hexToRgb(bg);
-  const darker = rgb.map((channel) => Math.round(channel * 0.7));
+  const lightBg = (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255 > 0.55;
+  // Helle Themes nur leicht abdunkeln, sonst wird die Titelleiste grau.
+  const darker = rgb.map((channel) => Math.round(channel * (lightBg ? 0.95 : 0.7)));
   const textRgb = hexToRgb(text);
 
   rootStyle.setProperty('--accent', accent);
@@ -1029,27 +1027,20 @@ function applyTheme(input) {
   document.body.classList.remove('border-default', 'border-thin', 'border-glow', 'border-none');
   document.body.classList.add(`border-${borderStyle}`);
 
-  // Hintergrund: Wallpaper hat Vorrang, sonst Animation
-  const backdrop = document.querySelector('.backdrop');
-  if (wallpaper) {
-    document.body.classList.add('has-wallpaper');
-    document.body.classList.remove('has-bg-animation');
-    document.body.style.backgroundImage = `url(${CSS.escape(wallpaper)})`;
-    document.body.style.backgroundSize = 'cover';
-    document.body.style.backgroundPosition = 'center';
-    if (backdrop) backdrop.className = 'backdrop';
-  } else {
-    document.body.classList.remove('has-wallpaper');
-    document.body.classList.add('has-bg-animation');
-    document.body.style.backgroundImage = '';
-    document.body.style.backgroundSize = '';
-    document.body.style.backgroundPosition = '';
-    document.body.classList.remove('bg-anim-none', 'bg-anim-orbs', 'bg-anim-particles', 'bg-anim-waves', 'bg-anim-mesh', 'bg-anim-noise', 'bg-anim-aurora', 'bg-anim-grid', 'bg-anim-stars', 'bg-anim-matrix', 'bg-anim-pulse', 'bg-anim-fog');
-    if (backdrop) backdrop.className = 'backdrop';
-    if (!wallpaper) {
-      document.body.classList.add(`bg-anim-${bgAnimation}`);
-    }
-  }
+  // Helle Themes: Formularelemente und Scrollbalken passend darstellen.
+  document.body.classList.toggle('theme-light', lightBg);
+  document.documentElement.style.colorScheme = lightBg ? 'light' : 'dark';
+
+  // Hintergrund: Bild hat Vorrang, sonst Canvas-Animation (src/shared/backgrounds.js).
+  document.body.classList.toggle('has-wallpaper', Boolean(wallpaper));
+  document.body.style.backgroundImage = wallpaper ? `url(${JSON.stringify(wallpaper)})` : '';
+  document.body.style.backgroundSize = wallpaper ? 'cover' : '';
+  document.body.style.backgroundPosition = wallpaper ? 'center' : '';
+  window.JTechBackgrounds?.attach(document.querySelector('.backdrop'), {
+    ...backgroundOptions({ accent, accentAlt, bg, text, bgAnimation, animationSpeed, animationIntensity, glowIntensity }),
+    paused: backgroundPaused,
+    hidden: Boolean(wallpaper)
+  });
 
   let customStyle = document.getElementById('jtech-custom-css');
   if (!customStyle) {
@@ -1085,180 +1076,272 @@ function applyTheme(input) {
   }
 }
 
+/** Optionen für JTechBackgrounds aus einem Theme. */
+function backgroundOptions(source, id = source.bgAnimation) {
+  return {
+    id,
+    accent: source.accent,
+    accentAlt: source.accentAlt,
+    bg: source.bg,
+    text: source.text,
+    intensity: clamp(source.animationIntensity, 0, 100, DEFAULT_THEME.animationIntensity) / 100,
+    glow: clamp(source.glowIntensity, 0, 100, DEFAULT_THEME.glowIntensity) / 100,
+    speed: clamp(source.animationSpeed, 0, 200, DEFAULT_THEME.animationSpeed) / 100,
+    fps: 30
+  };
+}
+
+// Gaming-Modus pausiert die Hintergrund-Animation des Interfaces.
+let backgroundPaused = false;
+
+function setBackgroundPaused(paused) {
+  backgroundPaused = Boolean(paused);
+  document.querySelector('.backdrop')?.__jtechBackground?.setPaused(backgroundPaused);
+}
+
+/** Gedämpfte Textfarbe aus Text und Hintergrund mischen. */
+function deriveTextDim(text, bg) {
+  const a = hexToRgb(text);
+  const b = hexToRgb(bg);
+  return `#${a.map((channel, i) => Math.round(channel * 0.6 + b[i] * 0.4).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function formatSlider(slider, value) {
+  const shown = slider.scale ? Math.round(value * slider.scale) : Math.round(value);
+  return `${shown} ${slider.unit}`;
+}
+
 function updateOutputs() {
-  els.glassValue.textContent = `${Math.round(theme.glass * 100)} %`;
-  els.blurValue.textContent = `${Math.round(theme.blur)} px`;
-  els.radiusValue.textContent = `${Math.round(theme.radius)} px`;
-  els.strokeValue.textContent = `${Math.round(theme.stroke)} %`;
-  els.shadowValue.textContent = `${Math.round(theme.shadow)} %`;
-  els.saturationValue.textContent = `${Math.round(theme.saturation)} %`;
-  els.fontSizeValue.textContent = `${Math.round(theme.fontSize)} %`;
-  els.animationSpeedValue.textContent = `${Math.round(theme.animationSpeed)} %`;
-  els.animationIntensityValue.textContent = `${Math.round(theme.animationIntensity)} %`;
-  els.glowIntensityValue.textContent = `${Math.round(theme.glowIntensity)} %`;
-  els.transitionSpeedValue.textContent = `${Math.round(theme.transitionSpeed)} %`;
-  if (els.cursorSizeValue) els.cursorSizeValue.textContent = `${Math.round(theme.cursorSize)} px`;
-  if (els.cursorIntensityValue) els.cursorIntensityValue.textContent = `${Math.round(theme.cursorIntensity)} %`;
+  for (const slider of THEME_SLIDERS) {
+    if (slider.outputEl) slider.outputEl.textContent = formatSlider(slider, theme[slider.key]);
+  }
+}
+
+function syncSegment(container, value) {
+  if (!container) return;
+  for (const button of container.querySelectorAll('.ds-seg')) {
+    const selected = button.dataset.value === value;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  }
 }
 
 function syncThemeInputs({ preserveFocus = false } = {}) {
   const active = document.activeElement;
+  const keep = (element) => preserveFocus && active === element;
 
   for (const control of COLOR_CONTROLS) {
     const value = theme[control.key];
     const swatch = els[control.swatch];
     const hex = els[control.hex];
-
-    if (!preserveFocus || active !== swatch) swatch.value = value;
-    if (!preserveFocus || active !== hex) {
+    if (swatch && !keep(swatch)) swatch.value = value;
+    if (hex && !keep(hex)) {
       hex.value = value.toUpperCase();
       hex.removeAttribute('aria-invalid');
     }
   }
 
-  if (!preserveFocus || active !== els.themeGlass) {
-    els.themeGlass.value = String(Math.round(theme.glass * 100));
-  }
-  if (!preserveFocus || active !== els.themeBlur) {
-    els.themeBlur.value = String(Math.round(theme.blur));
-  }
-  if (!preserveFocus || active !== els.themeRadius) {
-    els.themeRadius.value = String(Math.round(theme.radius));
-  }
-  if (!preserveFocus || active !== els.themeStroke) {
-    els.themeStroke.value = String(Math.round(theme.stroke));
-  }
-  if (!preserveFocus || active !== els.themeShadow) {
-    els.themeShadow.value = String(Math.round(theme.shadow));
-  }
-  if (!preserveFocus || active !== els.themeSaturation) {
-    els.themeSaturation.value = String(Math.round(theme.saturation));
-  }
-  if (!preserveFocus || active !== els.themeFontSize) {
-    els.themeFontSize.value = String(Math.round(theme.fontSize));
-  }
-  if (!preserveFocus || active !== els.themeFont) {
-    els.themeFont.value = theme.font || 'system';
-  }
-  if (!preserveFocus || active !== els.themeWallpaper) {
-    els.themeWallpaper.value = theme.wallpaper || '';
+  for (const slider of THEME_SLIDERS) {
+    if (!slider.inputEl || keep(slider.inputEl)) continue;
+    const value = slider.scale ? theme[slider.key] * slider.scale : theme[slider.key];
+    slider.inputEl.value = String(Math.round(value));
   }
 
-  if (!preserveFocus || active !== els.themeStyle) {
-    els.themeStyle.value = theme.style || 'default';
-  }
-  if (!preserveFocus || active !== els.themeBgAnimation) {
-    els.themeBgAnimation.value = theme.bgAnimation || 'orbs';
-  }
-  if (!preserveFocus || active !== els.themeAnimationSpeed) {
-    els.themeAnimationSpeed.value = String(Math.round(theme.animationSpeed));
-  }
-  if (!preserveFocus || active !== els.themeAnimationIntensity) {
-    els.themeAnimationIntensity.value = String(Math.round(theme.animationIntensity));
-  }
-  if (!preserveFocus || active !== els.themeGlowIntensity) {
-    els.themeGlowIntensity.value = String(Math.round(theme.glowIntensity));
-  }
-  if (!preserveFocus || active !== els.themeTransitionSpeed) {
-    els.themeTransitionSpeed.value = String(Math.round(theme.transitionSpeed));
-  }
-  if (!preserveFocus || active !== els.themeBorderStyle) {
-    els.themeBorderStyle.value = theme.borderStyle || 'default';
-  }
-  if (!preserveFocus || active !== els.themeCursorEffect) {
-    els.themeCursorEffect.value = theme.cursorEffect || 'none';
-  }
-  if (!preserveFocus || active !== els.themeCursorSize) {
-    els.themeCursorSize.value = String(Math.round(theme.cursorSize));
-  }
-  if (!preserveFocus || active !== els.themeCursorIntensity) {
-    els.themeCursorIntensity.value = String(Math.round(theme.cursorIntensity));
-  }
-  if (els.themeCursorImage && (!preserveFocus || active !== els.themeCursorImage)) {
-    els.themeCursorImage.value = theme.cursorPreset || '';
-  }
-  if (!preserveFocus || active !== els.themeCssChrome) {
-    els.themeCssChrome.value = theme.customCssChrome || '';
-  }
-  if (!preserveFocus || active !== els.themeCssNewtab) {
-    els.themeCssNewtab.value = theme.customCssNewtab || '';
-  }
+  for (const segment of THEME_SEGMENTS) syncSegment(els[segment.el], theme[segment.key]);
+
+  if (!keep(els.themeWallpaper)) els.themeWallpaper.value = theme.wallpaper || '';
+  if (!keep(els.themeCursorEffect)) els.themeCursorEffect.value = theme.cursorEffect || 'none';
+  if (els.themeCursorImage && !keep(els.themeCursorImage)) els.themeCursorImage.value = theme.cursorPreset || '';
+  if (!keep(els.themeCssChrome)) els.themeCssChrome.value = theme.customCssChrome || '';
+  if (!keep(els.themeCssNewtab)) els.themeCssNewtab.value = theme.customCssNewtab || '';
 
   updateOutputs();
+  syncBackgroundGallery();
   markActivePreset();
 }
 
-function markActivePreset() {
-  if (!els.presetGrid) return;
+/* ------------------------------------------------- Hintergrund-Galerie */
 
-  for (const button of els.presetGrid.querySelectorAll('.preset')) {
-    const preset = PRESETS.find((entry) => entry.id === button.dataset.preset);
-    if (!preset) continue;
+let wallpaperMode = false;
 
-    const matches = Object.keys(DEFAULT_THEME).every((key) => {
-      // Presets dürfen nur einen Teil der Theme-Felder setzen.
-      if (!(key in preset.theme)) return true;
-      if (key === 'glass') return Math.abs(preset.theme.glass - theme.glass) < 0.005;
-      if (typeof preset.theme[key] === 'number' && typeof theme[key] === 'number') {
-        return Math.abs(preset.theme[key] - theme[key]) < 0.5;
+function studioOpen() {
+  return Boolean(els.studio && !els.studio.hidden);
+}
+
+function renderBackgroundGallery() {
+  if (!els.bgGallery || els.bgGallery.childElementCount) return;
+
+  const entries = [...BG_ANIMATIONS, { id: 'image', name: 'Bild', description: 'Eigenes Hintergrundbild per URL' }];
+  for (const entry of entries) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ds-bg';
+    button.dataset.background = entry.id;
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', 'false');
+    button.title = entry.description || entry.name;
+    button.innerHTML = `
+      <span class="ds-bg__preview" aria-hidden="true"></span>
+      <span class="ds-bg__name"></span>
+    `;
+    button.querySelector('.ds-bg__name').textContent = entry.name;
+    if (entry.id === 'image') button.querySelector('.ds-bg__preview').classList.add('ds-bg__preview--image');
+
+    button.addEventListener('click', () => {
+      if (entry.id === 'image') {
+        wallpaperMode = true;
+        syncBackgroundGallery();
+        els.themeWallpaper.focus();
+        return;
       }
-      return String(preset.theme[key]).toLowerCase() === String(theme[key]).toLowerCase();
+      wallpaperMode = false;
+      theme.wallpaper = '';
+      theme.bgAnimation = entry.id;
+      commitTheme();
+      syncThemeInputs({ preserveFocus: true });
     });
-
-    button.classList.toggle('is-active', matches);
+    els.bgGallery.appendChild(button);
   }
 }
 
-function renderPresets() {
-  els.presetGrid.innerHTML = '';
+function syncBackgroundGallery() {
+  if (!els.bgGallery) return;
+  renderBackgroundGallery();
 
-  const allPresets = [...PRESETS, ...(appSettings.customThemes || []).map((ct) => ({ id: ct.id, name: ct.name, theme: ct.theme || {} }))];
-  for (const preset of allPresets) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'preset';
-    button.dataset.preset = preset.id;
-    button.title = `Preset „${preset.name}“ anwenden`;
-    button.innerHTML = `
-      <span class="preset__swatches" aria-hidden="true">
-        <i style="background:${preset.theme.accent}"></i>
-        <i style="background:${preset.theme.accentAlt}"></i>
-      </span>
-      <span class="preset__name"></span>
-    `;
-    button.querySelector('.preset__name').textContent = preset.name;
+  const imageActive = wallpaperMode || Boolean(theme.wallpaper);
+  for (const button of els.bgGallery.querySelectorAll('.ds-bg')) {
+    const id = button.dataset.background;
+    const selected = imageActive ? id === 'image' : id === theme.bgAnimation;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-checked', String(selected));
 
-    button.addEventListener('click', () => {
-      setTheme({ ...preset.theme });
-    });
-
-    if (String(preset.id).startsWith('custom-')) {
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.textContent = '×';
-      del.title = 'Theme löschen';
-      del.style.position = 'absolute';
-      del.style.top = '4px';
-      del.style.right = '4px';
-      del.style.background = 'rgba(0,0,0,0.5)';
-      del.style.border = 'none';
-      del.style.color = '#fff';
-      del.style.borderRadius = '6px';
-      del.style.cursor = 'pointer';
-      del.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const next = (appSettings.customThemes || []).filter((ct) => ct.id !== preset.id);
-        const saved = await api.saveSettings({ customThemes: next });
-        if (saved) applySettings(saved, { preserveFormFocus: true });
-        renderPresets();
-      });
-      button.style.position = 'relative';
-      button.appendChild(del);
+    const preview = button.querySelector('.ds-bg__preview');
+    if (id === 'image') {
+      preview.style.backgroundImage = theme.wallpaper ? `url(${JSON.stringify(theme.wallpaper)})` : '';
+      preview.classList.toggle('has-image', Boolean(theme.wallpaper));
+      continue;
     }
-
-    els.presetGrid.appendChild(button);
+    // Live-Vorschau nur, solange das Studio offen ist.
+    window.JTechBackgrounds?.attach(preview, {
+      ...backgroundOptions(theme, id),
+      fps: 24,
+      quality: 0.6,
+      paused: !studioOpen()
+    });
   }
 
+  if (els.wallpaperField) els.wallpaperField.hidden = !imageActive;
+  if (els.animationControls) els.animationControls.classList.toggle('is-muted', imageActive);
+  updateThemePreview();
+}
+
+function updateThemePreview() {
+  const preview = els.previewBackground;
+  if (!preview) return;
+  preview.style.backgroundImage = theme.wallpaper ? `url(${JSON.stringify(theme.wallpaper)})` : '';
+  window.JTechBackgrounds?.attach(preview, {
+    ...backgroundOptions(theme),
+    fps: 30,
+    quality: 0.8,
+    paused: !studioOpen(),
+    hidden: Boolean(theme.wallpaper)
+  });
+}
+
+/** Vorschau-Animationen nur bei offenem Studio laufen lassen. */
+function setStudioAnimations(running) {
+  const containers = [els.previewBackground, ...(els.bgGallery?.querySelectorAll('.ds-bg__preview') || [])];
+  for (const container of containers) container?.__jtechBackground?.setPaused(!running);
+}
+
+/* ------------------------------------------------------------ Presets */
+
+function themeMatches(candidate) {
+  return Object.keys(DEFAULT_THEME).every((key) => {
+    if (PERSONAL_THEME_KEYS.includes(key) || !(key in candidate)) return true;
+    if (key === 'glass') return Math.abs(Number(candidate.glass) - theme.glass) < 0.005;
+    if (typeof candidate[key] === 'number' && typeof theme[key] === 'number') {
+      return Math.abs(candidate[key] - theme[key]) < 0.5;
+    }
+    return String(candidate[key]).toLowerCase() === String(theme[key]).toLowerCase();
+  });
+}
+
+function markActivePreset() {
+  const customThemes = appSettings.customThemes || [];
+  for (const card of document.querySelectorAll('.ds-preset')) {
+    const source = card.dataset.custom
+      ? customThemes.find((entry) => entry.id === card.dataset.preset)?.theme
+      : PRESETS.find((entry) => entry.id === card.dataset.preset)?.theme;
+    const matches = Boolean(source) && themeMatches(source);
+    card.classList.toggle('is-active', matches);
+    card.setAttribute('aria-pressed', String(matches));
+  }
+}
+
+function applyPresetTheme(source) {
+  const personal = Object.fromEntries(PERSONAL_THEME_KEYS.map((key) => [key, theme[key]]));
+  wallpaperMode = false;
+  setTheme({ ...DEFAULT_THEME, ...source, ...personal });
+}
+
+function presetCard(entry, { custom = false } = {}) {
+  const source = { ...DEFAULT_THEME, ...(entry.theme || {}) };
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'ds-preset';
+  card.dataset.preset = entry.id;
+  if (custom) card.dataset.custom = 'true';
+  card.title = `Theme „${entry.name}“ anwenden`;
+  card.style.setProperty('--p-bg', source.bg);
+  card.style.setProperty('--p-a', source.accent);
+  card.style.setProperty('--p-b', source.accentAlt);
+  card.style.setProperty('--p-text', source.text);
+  const background = BG_ANIMATIONS.find((item) => item.id === source.bgAnimation);
+  card.innerHTML = `
+    <span class="ds-preset__swatch" aria-hidden="true"><i></i><i></i></span>
+    <span class="ds-preset__text">
+      <span class="ds-preset__name"></span>
+      <span class="ds-preset__meta"></span>
+    </span>
+  `;
+  card.querySelector('.ds-preset__name').textContent = entry.name;
+  card.querySelector('.ds-preset__meta').textContent = source.wallpaper ? 'Bild' : (background?.name || '');
+  card.addEventListener('click', () => applyPresetTheme(entry.theme || {}));
+  return card;
+}
+
+function renderPresets() {
+  if (els.presetGrid) {
+    els.presetGrid.replaceChildren(...PRESETS.map((entry) => presetCard(entry)));
+  }
+  renderCustomThemes();
+}
+
+function renderCustomThemes() {
+  if (!els.customThemeGrid) return;
+  const customThemes = appSettings.customThemes || [];
+  els.customThemeGrid.replaceChildren();
+  els.customThemeEmpty.hidden = customThemes.length > 0;
+
+  for (const entry of customThemes) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ds-preset-wrap';
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'ds-preset__remove';
+    remove.title = `„${entry.name}“ löschen`;
+    remove.setAttribute('aria-label', `Theme ${entry.name} löschen`);
+    remove.textContent = '×';
+    remove.addEventListener('click', async () => {
+      const next = (appSettings.customThemes || []).filter((item) => item.id !== entry.id);
+      const saved = await api.saveSettings({ customThemes: next });
+      if (saved) applySettings(saved, { preserveFormFocus: true });
+      renderCustomThemes();
+    });
+    wrap.append(presetCard(entry, { custom: true }), remove);
+    els.customThemeGrid.appendChild(wrap);
+  }
   markActivePreset();
 }
 
@@ -1269,13 +1352,18 @@ if (els.saveCustomTheme) {
     els.themeSaveName.focus();
   });
   els.themeSaveCancel.addEventListener('click', () => { els.themeSaveForm.hidden = true; });
-  els.themeSaveConfirm.addEventListener('click', async () => {
-    const trimmed = (els.themeSaveName.value || '').trim();
-    if (!trimmed) return;
-    const next = [...(appSettings.customThemes || []), { id: 'custom-' + Date.now(), name: trimmed, theme: { ...theme } }];
-    saveSettingsPatch({ customThemes: next });
-    renderPresets();
+  els.themeSaveForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = (els.themeSaveName.value || '').trim().slice(0, 40);
+    if (!name) {
+      els.themeSaveName.focus();
+      return;
+    }
+    const entry = { id: `custom-${Date.now()}`, name, theme: { ...theme } };
+    const saved = await api.saveSettings({ customThemes: [...(appSettings.customThemes || []), entry] });
+    if (saved) applySettings(saved, { preserveFormFocus: true });
     els.themeSaveForm.hidden = true;
+    renderCustomThemes();
   });
 }
 
@@ -1329,34 +1417,38 @@ function commitTheme() {
 }
 
 function setTheme(next) {
+  const pick = (value, allowed, fallback) => (allowed.includes(value) ? value : fallback);
+  const text = normalizeHex(next.text) || DEFAULT_THEME.text;
+  const bg = normalizeHex(next.bg) || DEFAULT_THEME.bg;
+
   theme = {
     accent: normalizeHex(next.accent) || DEFAULT_THEME.accent,
     accentAlt: normalizeHex(next.accentAlt) || DEFAULT_THEME.accentAlt,
-    bg: normalizeHex(next.bg) || DEFAULT_THEME.bg,
-    text: normalizeHex(next.text) || DEFAULT_THEME.text,
-    textDim: normalizeHex(next.textDim) || DEFAULT_THEME.textDim,
+    bg,
+    text,
+    textDim: normalizeHex(next.textDim) || deriveTextDim(text, bg),
     stroke: Math.round(clamp(next.stroke, 0, 30, DEFAULT_THEME.stroke)),
     shadow: Math.round(clamp(next.shadow, 0, 80, DEFAULT_THEME.shadow)),
     saturation: Math.round(clamp(next.saturation, 100, 300, DEFAULT_THEME.saturation)),
-    font: typeof next.font === 'string' && next.font ? next.font : DEFAULT_THEME.font,
+    font: pick(next.font, THEME_FONTS, DEFAULT_THEME.font),
     fontSize: Math.round(clamp(next.fontSize, 80, 125, DEFAULT_THEME.fontSize)),
-    wallpaper: typeof next.wallpaper === 'string' ? next.wallpaper.slice(0, 2000) : DEFAULT_THEME.wallpaper,
+    wallpaper: typeof next.wallpaper === 'string' ? next.wallpaper.trim().slice(0, 2000) : DEFAULT_THEME.wallpaper,
     glass: Math.round(clamp(next.glass, 0.2, 0.95, DEFAULT_THEME.glass) * 100) / 100,
     blur: Math.round(clamp(next.blur, 0, 60, DEFAULT_THEME.blur)),
     radius: Math.round(clamp(next.radius, 0, 28, DEFAULT_THEME.radius)),
-    style: ['default', 'clean', 'animated', 'gaming', 'minimal'].includes(next.style) ? next.style : DEFAULT_THEME.style,
-    bgAnimation: BG_ANIMATIONS.some((a) => a.id === next.bgAnimation) ? next.bgAnimation : DEFAULT_THEME.bgAnimation,
+    style: pick(next.style, THEME_STYLES, DEFAULT_THEME.style),
+    bgAnimation: pick(next.bgAnimation, BG_ANIMATIONS.map((entry) => entry.id), DEFAULT_THEME.bgAnimation),
     animationSpeed: Math.round(clamp(next.animationSpeed, 0, 200, DEFAULT_THEME.animationSpeed)),
     animationIntensity: Math.round(clamp(next.animationIntensity, 0, 100, DEFAULT_THEME.animationIntensity)),
     glowIntensity: Math.round(clamp(next.glowIntensity, 0, 100, DEFAULT_THEME.glowIntensity)),
     transitionSpeed: Math.round(clamp(next.transitionSpeed, 0, 200, DEFAULT_THEME.transitionSpeed)),
-    borderStyle: ['default', 'thin', 'glow', 'none'].includes(next.borderStyle) ? next.borderStyle : DEFAULT_THEME.borderStyle,
-    cursorEffect: ['none', 'trail', 'sparks', 'comet', 'ripple', 'laser', 'bubbles'].includes(next.cursorEffect) ? next.cursorEffect : DEFAULT_THEME.cursorEffect,
+    borderStyle: pick(next.borderStyle, BORDER_STYLES, DEFAULT_THEME.borderStyle),
+    cursorEffect: pick(next.cursorEffect, CURSOR_EFFECTS, DEFAULT_THEME.cursorEffect),
     cursorColor: normalizeHex(next.cursorColor) || DEFAULT_THEME.cursorColor,
     cursorSize: Math.round(clamp(next.cursorSize, 2, 40, DEFAULT_THEME.cursorSize)),
     cursorIntensity: Math.round(clamp(next.cursorIntensity, 0, 100, DEFAULT_THEME.cursorIntensity)),
-    cursorImage: typeof next.cursorImage === 'string' ? next.cursorImage : (theme.cursorImage || DEFAULT_THEME.cursorImage || ''),
-    cursorPreset: typeof next.cursorPreset === 'string' ? next.cursorPreset : (theme.cursorPreset || DEFAULT_THEME.cursorPreset || ''),
+    cursorImage: typeof next.cursorImage === 'string' ? next.cursorImage : (theme.cursorImage || ''),
+    cursorPreset: typeof next.cursorPreset === 'string' ? next.cursorPreset : (theme.cursorPreset || ''),
     customCssChrome: String(next.customCssChrome ?? theme.customCssChrome ?? '').trim().slice(0, 30000),
     customCssNewtab: String(next.customCssNewtab ?? theme.customCssNewtab ?? '').trim().slice(0, 30000)
   };
@@ -2348,6 +2440,7 @@ function applySettings(next, { preserveFormFocus = false } = {}) {
   }
   if (Array.isArray(next.customThemes)) {
     appSettings.customThemes = next.customThemes;
+    renderCustomThemes();
   }
   if (Array.isArray(next.bookmarks)) {
     appSettings.bookmarks = next.bookmarks;
@@ -2368,6 +2461,7 @@ function applySettings(next, { preserveFormFocus = false } = {}) {
   applyTabLayout(appSettings.ui.tabLayout);
   applyDensity();
   document.body.classList.toggle('gaming-mode', appSettings.ui.gamingMode === true);
+  setBackgroundPaused(appSettings.ui.gamingMode === true);
   renderFavoritesBar();
   renderSidebarLists();
   renderTabs();
@@ -2679,7 +2773,9 @@ function openStudio() {
   els.studio.hidden = false;
   els.studio.setAttribute('aria-hidden', 'false');
   updateOverlayState();
+  wallpaperMode = Boolean(theme.wallpaper);
   syncThemeInputs();
+  setStudioAnimations(true);
   setStatus('Automatisch gespeichert', 'idle');
   els.studioClose.focus();
 }
@@ -2694,6 +2790,8 @@ function closeStudio({ restoreFocus = true } = {}) {
   els.omnibox.blur();
 
   flushSave();
+  setStudioAnimations(false);
+  els.themeSaveForm.hidden = true;
   updateOverlayState();
 
   if (restoreFocus) api.focusContent();
@@ -2952,136 +3050,78 @@ els.themeReset.addEventListener('click', () => {
 });
 
 for (const control of COLOR_CONTROLS) {
-  els[control.swatch].addEventListener('input', () => {
-    const value = normalizeHex(els[control.swatch].value);
-    if (!value) return;
+  const swatch = els[control.swatch];
+  const hex = els[control.hex];
+  if (!swatch || !hex) continue;
 
+  const setColor = (value) => {
     theme[control.key] = value;
-    els[control.hex].value = value.toUpperCase();
-    els[control.hex].removeAttribute('aria-invalid');
+    // Gedämpfter Text folgt Text- und Hintergrundfarbe.
+    if (control.key === 'text' || control.key === 'bg') theme.textDim = deriveTextDim(theme.text, theme.bg);
     commitTheme();
+    syncBackgroundGallery();
+  };
+
+  swatch.addEventListener('input', () => {
+    const value = normalizeHex(swatch.value);
+    if (!value) return;
+    hex.value = value.toUpperCase();
+    hex.removeAttribute('aria-invalid');
+    setColor(value);
   });
 
-  els[control.hex].addEventListener('input', () => {
-    const raw = els[control.hex].value.trim();
+  hex.addEventListener('input', () => {
+    const raw = hex.value.trim();
     const value = normalizeHex(raw.startsWith('#') ? raw : `#${raw}`);
-
     if (!value) {
-      els[control.hex].setAttribute('aria-invalid', 'true');
+      hex.setAttribute('aria-invalid', 'true');
       return;
     }
-
-    els[control.hex].removeAttribute('aria-invalid');
-    theme[control.key] = value;
-    els[control.swatch].value = value;
-    commitTheme();
+    hex.removeAttribute('aria-invalid');
+    swatch.value = value;
+    setColor(value);
   });
 
-  els[control.hex].addEventListener('blur', () => {
-    if (els[control.hex].getAttribute('aria-invalid') === 'true') syncThemeInputs();
+  hex.addEventListener('blur', () => {
+    if (hex.getAttribute('aria-invalid') === 'true') syncThemeInputs();
   });
 }
 
-els.themeGlass.addEventListener('input', () => {
-  theme.glass = clamp(Number(els.themeGlass.value) / 100, 0.2, 0.95, DEFAULT_THEME.glass);
-  commitTheme();
-});
+// Werte, die die Live-Vorschauen der Hintergründe beeinflussen.
+const PREVIEW_KEYS = ['animationSpeed', 'animationIntensity', 'glowIntensity'];
 
-els.themeBlur.addEventListener('input', () => {
-  theme.blur = Math.round(clamp(Number(els.themeBlur.value), 0, 60, DEFAULT_THEME.blur));
-  commitTheme();
-});
+for (const slider of THEME_SLIDERS) {
+  if (!slider.inputEl) continue;
+  slider.inputEl.addEventListener('input', () => {
+    const raw = Number(slider.inputEl.value);
+    const value = clamp(raw, slider.min, slider.max, slider.min);
+    theme[slider.key] = slider.scale ? Math.round(value) / slider.scale : Math.round(value);
+    commitTheme();
+    if (PREVIEW_KEYS.includes(slider.key)) syncBackgroundGallery();
+  });
+}
 
-els.themeRadius.addEventListener('input', () => {
-  theme.radius = Math.round(clamp(Number(els.themeRadius.value), 0, 28, DEFAULT_THEME.radius));
-  commitTheme();
-});
-
-els.themeStroke.addEventListener('input', () => {
-  theme.stroke = Math.round(clamp(Number(els.themeStroke.value), 0, 30, DEFAULT_THEME.stroke));
-  commitTheme();
-});
-
-els.themeShadow.addEventListener('input', () => {
-  theme.shadow = Math.round(clamp(Number(els.themeShadow.value), 0, 80, DEFAULT_THEME.shadow));
-  commitTheme();
-});
-
-els.themeSaturation.addEventListener('input', () => {
-  theme.saturation = Math.round(clamp(Number(els.themeSaturation.value), 100, 300, DEFAULT_THEME.saturation));
-  commitTheme();
-});
-
-els.themeFontSize.addEventListener('input', () => {
-  theme.fontSize = Math.round(clamp(Number(els.themeFontSize.value), 80, 125, DEFAULT_THEME.fontSize));
-  commitTheme();
-});
-
-els.themeFont.addEventListener('change', () => {
-  theme.font = els.themeFont.value || 'system';
-  commitTheme();
-});
+for (const segment of THEME_SEGMENTS) {
+  const container = els[segment.el];
+  if (!container) continue;
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('.ds-seg');
+    if (!button || !segment.allowed.includes(button.dataset.value)) return;
+    theme[segment.key] = button.dataset.value;
+    syncSegment(container, theme[segment.key]);
+    commitTheme();
+  });
+}
 
 els.themeWallpaper.addEventListener('input', () => {
   theme.wallpaper = String(els.themeWallpaper.value || '').trim().slice(0, 2000);
+  wallpaperMode = true;
   commitTheme();
-});
-
-els.themeStyle.addEventListener('change', () => {
-  theme.style = ['default', 'clean', 'animated', 'gaming', 'minimal'].includes(els.themeStyle.value)
-    ? els.themeStyle.value
-    : 'default';
-  commitTheme();
-});
-
-els.themeBgAnimation.addEventListener('change', () => {
-  theme.bgAnimation = BG_ANIMATIONS.some((a) => a.id === els.themeBgAnimation.value)
-    ? els.themeBgAnimation.value
-    : 'orbs';
-  commitTheme();
-});
-
-els.themeAnimationSpeed.addEventListener('input', () => {
-  theme.animationSpeed = Math.round(clamp(Number(els.themeAnimationSpeed.value), 0, 200, DEFAULT_THEME.animationSpeed));
-  commitTheme();
-});
-
-els.themeAnimationIntensity.addEventListener('input', () => {
-  theme.animationIntensity = Math.round(clamp(Number(els.themeAnimationIntensity.value), 0, 100, DEFAULT_THEME.animationIntensity));
-  commitTheme();
-});
-
-els.themeGlowIntensity.addEventListener('input', () => {
-  theme.glowIntensity = Math.round(clamp(Number(els.themeGlowIntensity.value), 0, 100, DEFAULT_THEME.glowIntensity));
-  commitTheme();
-});
-
-els.themeTransitionSpeed.addEventListener('input', () => {
-  theme.transitionSpeed = Math.round(clamp(Number(els.themeTransitionSpeed.value), 0, 200, DEFAULT_THEME.transitionSpeed));
-  commitTheme();
-});
-
-els.themeBorderStyle.addEventListener('change', () => {
-  theme.borderStyle = ['default', 'thin', 'glow', 'none'].includes(els.themeBorderStyle.value)
-    ? els.themeBorderStyle.value
-    : 'default';
-  commitTheme();
+  syncBackgroundGallery();
 });
 
 els.themeCursorEffect.addEventListener('change', () => {
-  theme.cursorEffect = ['none', 'trail', 'sparks', 'comet', 'ripple', 'laser', 'bubbles'].includes(els.themeCursorEffect.value)
-    ? els.themeCursorEffect.value
-    : 'none';
-  commitTheme();
-});
-
-els.themeCursorSize.addEventListener('input', () => {
-  theme.cursorSize = Math.round(clamp(Number(els.themeCursorSize.value), 2, 40, DEFAULT_THEME.cursorSize));
-  commitTheme();
-});
-
-els.themeCursorIntensity.addEventListener('input', () => {
-  theme.cursorIntensity = Math.round(clamp(Number(els.themeCursorIntensity.value), 0, 100, DEFAULT_THEME.cursorIntensity));
+  theme.cursorEffect = CURSOR_EFFECTS.includes(els.themeCursorEffect.value) ? els.themeCursorEffect.value : 'none';
   commitTheme();
 });
 
@@ -3141,7 +3181,6 @@ const CURSOR_PRESET_NAMES = {
   play: 'Play'
 };
 
-populateSelect(els.themeBgAnimation, BG_ANIMATIONS);
 populateSelect(els.themeCursorImage, Object.entries(CURSOR_PRESETS).map(([id]) => ({
   id,
   name: CURSOR_PRESET_NAMES[id] || id
@@ -3191,33 +3230,32 @@ function importTheme(file) {
 }
 
 function randomizeTheme() {
-  const hues = [0, 25, 45, 120, 170, 200, 260, 290, 320];
-  const hue = hues[Math.floor(Math.random() * hues.length)];
-  const hue2 = (hue + 35 + Math.floor(Math.random() * 60)) % 360;
-  const dark = Math.random() > 0.85;
-  const bgL = dark ? 4 + Math.random() * 5 : 8 + Math.random() * 6;
-  const styles = ['default', 'clean', 'animated', 'gaming', 'minimal'];
-  const animations = BG_ANIMATIONS.filter((a) => a.id !== 'none').map((a) => a.id);
-  const borders = ['default', 'thin', 'glow', 'none'];
-  const cursorEffects = ['none', 'none', 'trail', 'sparks', 'comet', 'ripple', 'laser', 'bubbles'];
+  const hue = Math.floor(Math.random() * 360);
+  const hue2 = (hue + 40 + Math.floor(Math.random() * 120)) % 360;
+  const animations = BG_ANIMATIONS.filter((entry) => entry.id !== 'none').map((entry) => entry.id);
+  const pickOne = (list) => list[Math.floor(Math.random() * list.length)];
+  const accent = hslToHex(hue, 85 + Math.random() * 10, 58 + Math.random() * 6);
+  const bg = hslToHex((hue + 200) % 360, 30 + Math.random() * 20, 4 + Math.random() * 5);
+  const text = hslToHex(hue, 30, 93);
+
+  wallpaperMode = false;
   setTheme({
     ...theme,
-    accent: hslToHex(hue, 90, 55),
-    accentAlt: hslToHex(hue2, 85, 58),
-    bg: hslToHex((hue + 180) % 360, 25, bgL),
-    glass: 0.65 + Math.random() * 0.15,
-    blur: 16 + Math.floor(Math.random() * 16),
-    radius: 8 + Math.floor(Math.random() * 10),
-    style: styles[Math.floor(Math.random() * styles.length)],
-    bgAnimation: animations[Math.floor(Math.random() * animations.length)],
-    animationSpeed: 80 + Math.floor(Math.random() * 80),
-    animationIntensity: 30 + Math.floor(Math.random() * 60),
-    glowIntensity: 30 + Math.floor(Math.random() * 60),
-    transitionSpeed: 80 + Math.floor(Math.random() * 80),
-    borderStyle: borders[Math.floor(Math.random() * borders.length)],
-    cursorEffect: cursorEffects[Math.floor(Math.random() * cursorEffects.length)],
-    cursorSize: 8 + Math.floor(Math.random() * 24),
-    cursorIntensity: 30 + Math.floor(Math.random() * 60)
+    accent,
+    accentAlt: hslToHex(hue2, 85, 60),
+    bg,
+    text,
+    textDim: deriveTextDim(text, bg),
+    wallpaper: '',
+    style: pickOne(THEME_STYLES),
+    bgAnimation: pickOne(animations),
+    glass: Math.round((0.62 + Math.random() * 0.18) * 100) / 100,
+    blur: 16 + Math.floor(Math.random() * 12),
+    radius: 6 + Math.floor(Math.random() * 12),
+    animationIntensity: 35 + Math.floor(Math.random() * 45),
+    glowIntensity: 30 + Math.floor(Math.random() * 50),
+    borderStyle: pickOne(BORDER_STYLES),
+    cursorColor: accent
   });
 }
 
