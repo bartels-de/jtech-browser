@@ -472,3 +472,38 @@ body.theme-light .res-proc__btn--kill:hover,
 body.theme-light .res-proc__btn.is-confirm {
   color: #be123c;
 }
+
+/* ---------------------------------------------------------- Update-Hinweis */
+
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  margin-right: 4px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 20%, var(--panel));
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 0 calc(var(--glow-intensity) * 0.3px) color-mix(in srgb, var(--accent) 45%, transparent);
+  -webkit-app-region: no-drag;
+}
+
+.update-pill:hover {
+  background: color-mix(in srgb, var(--accent) 30%, var(--panel));
+}
+
+.update-pill[hidden] {
+  display: none;
+}
+
+.update-pill:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}

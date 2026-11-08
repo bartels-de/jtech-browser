@@ -38,11 +38,14 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "JTech-Browser-Setup-${version}.${ext}"
     },
     "publish": {
-      "provider": "generic",
-      "url": "https://updates.jtech-browser.example/"
+      "provider": "github",
+      "owner": "bartels-de",
+      "repo": "jtech-browser",
+      "releaseType": "release"
     }
   },
   "devDependencies": {
@@ -55,5 +58,9 @@
     "electron-chrome-extensions": "^4.10.0",
     "electron-updater": "^6.8.11",
     "koffi": "^2.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bartels-de/jtech-browser.git"
   }
 }

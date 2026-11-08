@@ -74,6 +74,7 @@ let overlayOpen = false;
 let adblocker = null;
 let chromeExtensions = null;
 let resources = null;
+let updateState = { state: 'idle', version: null, percent: 0, message: '', lastCheck: 0 };
 const jobLimiter = createJobLimiter();
 let windowClosing = false;
 
@@ -142,6 +143,7 @@ function createWindow() {
     if (settings) chrome.send('theme:update', settings.theme);
     chrome.send('settings:update', publicSettings());
     chrome.send('extensions:update', loadedExtensions);
+    chrome.send('update:status', publicUpdateState());
   });
 
   window.on('maximize', () => chrome.send('window:state', { maximized: true }));
@@ -629,6 +631,58 @@ async function installExtensionFromStore(input) {
   }
 }
 
+/* ------------------------------------------------------------ Auto-Update */
+
+// Updates kommen aus den GitHub Releases (siehe build.publish in package.json).
+// Sie werden im Hintergrund geladen und beim nächsten Beenden installiert;
+// „Neu starten“ im UI installiert sofort. Kein erzwungener Neustart.
+const UPDATE_CHECK_INTERVAL = 4 * 60 * 60 * 1000;
+
+function updatesSupported() {
+  return Boolean(autoUpdater) && app.isPackaged;
+}
+
+function publicUpdateState() {
+  return {
+    ...updateState,
+    current: app.getVersion(),
+    supported: updatesSupported()
+  };
+}
+
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  if (chrome && !chrome.isDestroyed()) chrome.send('update:status', publicUpdateState());
+}
+
+async function checkForUpdates() {
+  if (!updatesSupported()) return publicUpdateState();
+  if (updateState.state === 'downloading' || updateState.state === 'ready') return publicUpdateState();
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (error) {
+    setUpdateState({ state: 'error', message: String(error?.message || error).slice(0, 300), lastCheck: Date.now() });
+  }
+  return publicUpdateState();
+}
+
+function setupAutoUpdater() {
+  if (!updatesSupported()) return;
+  autoUpdater.logger = console;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => setUpdateState({ state: 'checking', message: '' }));
+  autoUpdater.on('update-available', (info) => setUpdateState({ state: 'downloading', version: info?.version || null, percent: 0 }));
+  autoUpdater.on('update-not-available', () => setUpdateState({ state: 'none', lastCheck: Date.now() }));
+  autoUpdater.on('download-progress', (progress) => setUpdateState({ state: 'downloading', percent: Math.round(progress?.percent || 0) }));
+  autoUpdater.on('update-downloaded', (info) => setUpdateState({ state: 'ready', version: info?.version || updateState.version, percent: 100, lastCheck: Date.now() }));
+  autoUpdater.on('error', (error) => setUpdateState({ state: 'error', message: String(error?.message || error).slice(0, 300), lastCheck: Date.now() }));
+
+  setTimeout(checkForUpdates, 15000).unref?.();
+  setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL).unref?.();
+}
+
 function broadcastDownloads() {
   if (chrome && !chrome.isDestroyed()) {
     chrome.send('downloads:update', downloads.map(({ item, ...rest }) => rest));
@@ -974,6 +1028,15 @@ function registerIpc() {
     return loadedExtensions;
   });
 
+  ipcMain.handle('update:get', () => publicUpdateState());
+  ipcMain.handle('update:check', () => checkForUpdates());
+  ipcMain.handle('update:install', () => {
+    if (!updatesSupported() || updateState.state !== 'ready') return false;
+    // isSilent = false (Installer kurz sichtbar), isForceRunAfter = true (danach starten)
+    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return true;
+  });
+
   // Schnappschuss des Ressourcen-Managers (misst selbst alle 2 s).
   ipcMain.handle('resources:snapshot', () => resources?.snapshot() || null);
 
@@ -1193,16 +1256,7 @@ if (!gotSingleInstanceLock) {
       console.warn('[changelog]', error.message);
     }
 
-    // Auto-Update (nur in der gepackten App).
-    if (autoUpdater && app.isPackaged) {
-      autoUpdater.logger = console;
-      autoUpdater.on('update-available', () => console.log('[updater] Update verfügbar'));
-      autoUpdater.on('update-downloaded', () => {
-        console.log('[updater] Update heruntergeladen, wird beim Neustart installiert');
-        try { autoUpdater.quitAndInstall(); } catch {}
-      });
-      autoUpdater.checkForUpdatesAndNotify().catch((e) => console.warn('[updater]', e.message));
-    }
+    setupAutoUpdater();
 
     if (settings?.ui?.restoreSession) {
       const savedSession = readSession();
