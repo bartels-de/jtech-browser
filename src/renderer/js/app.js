@@ -112,8 +112,30 @@ const els = {
   gamingModeToggle: document.getElementById('setting-gaming-mode'),
   gamingModeButton: document.getElementById('gaming-mode-toggle'),
   resourceHudToggle: document.getElementById('resource-hud-toggle'),
-  resourceHud: document.getElementById('resource-hud'),
-  resourceHudClose: document.getElementById('resource-hud-close'),
+  resPanel: document.getElementById('res-panel'),
+  resPanelClose: document.getElementById('res-panel-close'),
+  resCpuValue: document.getElementById('res-cpu-value'),
+  resRamValue: document.getElementById('res-ram-value'),
+  resRamSub: document.getElementById('res-ram-sub'),
+  resCpuLimitLabel: document.getElementById('res-cpu-limit-label'),
+  resRamLimitLabel: document.getElementById('res-ram-limit-label'),
+  resCpuChart: document.getElementById('res-cpu-chart'),
+  resRamChart: document.getElementById('res-ram-chart'),
+  resMeta: document.getElementById('res-meta'),
+  resLimits: document.getElementById('res-limits'),
+  resEnabled: document.getElementById('res-enabled'),
+  resCpuLimit: document.getElementById('res-cpu-limit'),
+  resCpuLimitValue: document.getElementById('res-cpu-limit-value'),
+  resRamLimit: document.getElementById('res-ram-limit'),
+  resRamLimitValue: document.getElementById('res-ram-limit-value'),
+  resHardCap: document.getElementById('res-hard-cap'),
+  resHardCapNote: document.getElementById('res-hard-cap-note'),
+  resLowPriority: document.getElementById('res-low-priority'),
+  resEventsSection: document.getElementById('res-events-section'),
+  resEvents: document.getElementById('res-events'),
+  resProcTitle: document.getElementById('res-proc-title'),
+  resProcs: document.getElementById('res-procs'),
+  resSortButtons: [...document.querySelectorAll('.res-sort__btn')],
   mediaHub: document.getElementById('media-hub'),
   mediaHubToggle: document.getElementById('media-hub-toggle'),
   mediaHubClose: document.getElementById('media-hub-close'),
@@ -124,10 +146,6 @@ const els = {
   mediaRefresh: document.getElementById('media-refresh'),
   mediaMixerList: document.getElementById('media-mixer-list'),
   mediaMixerEmpty: document.getElementById('media-mixer-empty'),
-  hudRam: document.getElementById('hud-ram'),
-  hudCpu: document.getElementById('hud-cpu'),
-  hudTab: document.getElementById('hud-tab'),
-  hudTabs: document.getElementById('hud-tabs'),
   settingsOpenStudio: document.getElementById('settings-open-studio'),
   settingsAddCurrent: document.getElementById('settings-add-current'),
   settingsFavoritesList: document.getElementById('settings-favorites-list'),
@@ -1489,7 +1507,8 @@ const DEFAULT_HOTKEYS = {
   zoomIn: ['Ctrl+=', 'Ctrl+NumpadAdd'],
   zoomOut: ['Ctrl+-', 'Ctrl+NumpadSubtract'],
   zoomReset: ['Ctrl+0'],
-  devTools: ['F12', 'Ctrl+Shift+I']
+  devTools: ['F12', 'Ctrl+Shift+I'],
+  taskManager: ['Shift+Escape']
 };
 
 const HOTKEY_ACTIONS = [
@@ -1514,6 +1533,7 @@ const HOTKEY_ACTIONS = [
   ['commandPalette', 'Befehlspalette'],
   ['fullscreen', 'Vollbild'],
   ['print', 'Drucken'],
+  ['taskManager', 'Ressourcen & Prozesse'],
   ['devTools', 'Entwicklertools']
 ];
 
@@ -1535,6 +1555,7 @@ const appSettings = {
   extensions: [],
   history: [],
   privacy: { adblock: true, trackingProtection: true },
+  performance: { enabled: false, cpuLimit: 50, ramLimit: 0, hardCap: true, lowPriority: false },
   hotkeys: cloneHotkeys(DEFAULT_HOTKEYS)
 };
 
@@ -2453,6 +2474,9 @@ function applySettings(next, { preserveFormFocus = false } = {}) {
   }
   if (next.privacy && typeof next.privacy === 'object') {
     appSettings.privacy = { ...appSettings.privacy, ...next.privacy };
+  }
+  if (next.performance && typeof next.performance === 'object') {
+    appSettings.performance = { ...appSettings.performance, ...next.performance };
   }
   if (next.hotkeys && typeof next.hotkeys === 'object') {
     appSettings.hotkeys = cloneHotkeys({ ...DEFAULT_HOTKEYS, ...next.hotkeys });
@@ -3539,41 +3563,380 @@ if (els.gamingModeButton) {
   });
 }
 
-if (els.resourceHudToggle) {
-  els.resourceHudToggle.addEventListener('click', () => {
-    els.resourceHud.hidden = !els.resourceHud.hidden;
-    els.resourceHudToggle.classList.toggle('is-active', !els.resourceHud.hidden);
-    reportLayout();
-    if (!els.resourceHud.hidden) updateResourceHud();
-  });
-}
-if (els.resourceHudClose) {
-  els.resourceHudClose.addEventListener('click', () => {
-    els.resourceHud.hidden = true;
-    if (els.resourceHudToggle) els.resourceHudToggle.classList.remove('is-active');
-    reportLayout();
-  });
+/* ------------------------------------------------------- Ressourcen-Panel */
+
+const RESOURCE_KIND_ICONS = { browser: 'B', ui: 'UI', tab: 'T', extension: 'E', gpu: 'G', service: 'D', renderer: 'P' };
+const RESOURCE_ACTION_LABELS = { sleep: 'Schlafen', wake: 'Aufwecken', close: 'Schließen', kill: 'Beenden' };
+
+let resourceTimer = null;
+let resourceSort = 'cpu';
+let resourceEditedAt = 0;
+let resourceSaveTimer = null;
+let resourcePendingKill = null;
+let resourceSnapshot = null;
+
+const formatNumber = (value, digits = 1) => Number(value || 0).toLocaleString('de-DE', { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+const formatPercent = (value) => `${formatNumber(value)} %`;
+
+function formatMemory(mb) {
+  const value = Number(mb) || 0;
+  return value >= 1024 ? `${formatNumber(value / 1024)} GB` : `${Math.round(value)} MB`;
 }
 
-let resourceHudTimer = null;
-async function updateResourceHud() {
-  if (!els.resourceHud || els.resourceHud.hidden) return;
+function resourcePanelOpen() {
+  return Boolean(els.resPanel && !els.resPanel.hidden);
+}
+
+function openResourcePanel({ focusProcesses = false } = {}) {
+  if (!els.resPanel) return;
+  if (els.mediaHub && !els.mediaHub.hidden) closeMediaHub();
+  if (els.resPanel.hidden) {
+    els.resPanel.hidden = false;
+    els.resPanel.setAttribute('aria-hidden', 'false');
+    els.resourceHudToggle?.classList.add('is-active');
+    els.resourceHudToggle?.setAttribute('aria-expanded', 'true');
+    reportLayout();
+  }
+  refreshResources();
+  if (resourceTimer) clearInterval(resourceTimer);
+  resourceTimer = setInterval(refreshResources, 2000);
+  if (focusProcesses) els.resProcTitle?.scrollIntoView({ block: 'start' });
+}
+
+function closeResourcePanel() {
+  if (!els.resPanel || els.resPanel.hidden) return;
+  els.resPanel.hidden = true;
+  els.resPanel.setAttribute('aria-hidden', 'true');
+  els.resourceHudToggle?.classList.remove('is-active');
+  els.resourceHudToggle?.setAttribute('aria-expanded', 'false');
+  if (resourceTimer) clearInterval(resourceTimer);
+  resourceTimer = null;
+  resourcePendingKill = null;
+  reportLayout();
+}
+
+async function refreshResources() {
+  if (!resourcePanelOpen()) return;
   try {
-    const metrics = await api.getMetrics();
-    const totalMem = metrics.reduce((sum, m) => sum + (m.memory || 0), 0);
-    const totalCpu = metrics.reduce((sum, m) => sum + (m.cpu || 0), 0);
-    const active = getActive();
-    const activeMetric = active ? metrics.find((m) => m.tabId === active.id) : null;
-    els.hudRam.textContent = `${totalMem} MB`;
-    els.hudCpu.textContent = `${totalCpu} %`;
-    els.hudTab.textContent = activeMetric ? `${activeMetric.memory} MB · ${activeMetric.cpu} %` : '–';
-    els.hudTabs.textContent = `${state.tabs.length} (${state.tabs.filter((t) => t.sleeping).length} schlafend)`;
+    const snapshot = await api.getResources();
+    if (snapshot) {
+      resourceSnapshot = snapshot;
+      renderResources(snapshot);
+    }
   } catch (error) {
-    console.error('[hud] Aktualisierung fehlgeschlagen:', error);
+    console.error('[ressourcen] Aktualisierung fehlgeschlagen:', error);
   }
 }
 
-resourceHudTimer = setInterval(updateResourceHud, 3000);
+/* Verlauf: eine Linie pro Grafik, Limit als gestrichelte Linie, Fadenkreuz beim Überfahren. */
+const RESOURCE_HISTORY_SLOTS = 90;
+
+function drawResourceChart(container, values, { max, limit, format }) {
+  if (!container) return;
+  container.__chart = { values, max, limit, format };
+  const canvas = container.querySelector('canvas');
+  const width = Math.max(1, container.clientWidth);
+  const height = Math.max(1, container.clientHeight);
+  const dpr = window.devicePixelRatio || 1;
+  if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const styles = getComputedStyle(document.documentElement);
+  const accent = styles.getPropertyValue('--accent').trim() || '#7c6cff';
+  const faint = styles.getPropertyValue('--text-faint').trim() || 'rgba(255,255,255,0.5)';
+  const stroke = styles.getPropertyValue('--stroke').trim() || 'rgba(255,255,255,0.1)';
+  const top = 6;
+  const bottom = height - 2;
+  const step = width / (RESOURCE_HISTORY_SLOTS - 1);
+  const offset = RESOURCE_HISTORY_SLOTS - values.length;
+  const x = (index) => (index + offset) * step;
+  const y = (value) => bottom - (Math.min(value, max) / max) * (bottom - top);
+
+  // Grundlinie
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, bottom + 0.5);
+  ctx.lineTo(width, bottom + 0.5);
+  ctx.stroke();
+
+  if (values.length > 1) {
+    const gradient = ctx.createLinearGradient(0, top, 0, bottom);
+    const [r, g, b] = hexToRgb(accent);
+    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.26)`);
+    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+    ctx.beginPath();
+    values.forEach((value, index) => (index ? ctx.lineTo(x(index), y(value)) : ctx.moveTo(x(index), y(value))));
+    ctx.lineTo(x(values.length - 1), bottom);
+    ctx.lineTo(x(0), bottom);
+    ctx.closePath();
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.beginPath();
+    values.forEach((value, index) => (index ? ctx.lineTo(x(index), y(value)) : ctx.moveTo(x(index), y(value))));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  if (limit) {
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = faint;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, Math.round(y(limit)) + 0.5);
+    ctx.lineTo(width, Math.round(y(limit)) + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Fadenkreuz
+  const hover = container.__hover;
+  const tip = container.querySelector('.res-chart__tip');
+  if (hover != null && values.length) {
+    const index = Math.max(0, Math.min(values.length - 1, Math.round(hover / step) - offset));
+    const px = x(index);
+    ctx.strokeStyle = faint;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(px) + 0.5, top);
+    ctx.lineTo(Math.round(px) + 0.5, bottom);
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(px, y(values[index]), 4, 0, Math.PI * 2);
+    ctx.fill();
+    const secondsAgo = (values.length - 1 - index) * 2;
+    tip.textContent = `${format(values[index])} · ${secondsAgo ? `vor ${secondsAgo} s` : 'jetzt'}`;
+    tip.hidden = false;
+    tip.style.left = `${Math.min(Math.max(px, 40), width - 40)}px`;
+  } else if (tip) {
+    tip.hidden = true;
+  }
+}
+
+function bindResourceChart(container) {
+  if (!container) return;
+  container.addEventListener('pointermove', (event) => {
+    container.__hover = event.clientX - container.getBoundingClientRect().left;
+    const chart = container.__chart;
+    if (chart) drawResourceChart(container, chart.values, chart);
+  });
+  container.addEventListener('pointerleave', () => {
+    container.__hover = null;
+    const chart = container.__chart;
+    if (chart) drawResourceChart(container, chart.values, chart);
+  });
+}
+
+function renderResources(snapshot) {
+  const settings = snapshot.settings || {};
+  const cpuLimitActive = settings.enabled && settings.cpuLimit < 100;
+  const ramLimitActive = settings.enabled && settings.ramLimit > 0;
+
+  els.resCpuValue.textContent = formatPercent(snapshot.cpu);
+  els.resRamValue.textContent = formatMemory(snapshot.memory);
+  els.resRamSub.textContent = `von ${formatMemory(snapshot.systemMemory)} im System`;
+  els.resCpuLimitLabel.textContent = cpuLimitActive
+    ? `Limit ${settings.cpuLimit} % · ${snapshot.hardCap.active ? 'hart' : 'sanft'}`
+    : '';
+  els.resRamLimitLabel.textContent = ramLimitActive ? `Limit ${formatMemory(settings.ramLimit)}` : '';
+  els.resMeta.textContent = `${snapshot.tabCount} Tabs · ${snapshot.sleepingCount} schlafend · ${snapshot.cores} CPU-Kerne`;
+
+  drawResourceChart(els.resCpuChart, snapshot.history.cpu, {
+    max: 100,
+    limit: cpuLimitActive ? settings.cpuLimit : null,
+    format: formatPercent
+  });
+  const ramPeak = Math.max(...snapshot.history.memory, 1);
+  drawResourceChart(els.resRamChart, snapshot.history.memory, {
+    max: Math.max(ramLimitActive ? settings.ramLimit * 1.1 : 0, ramPeak * 1.25, 256),
+    limit: ramLimitActive ? settings.ramLimit : null,
+    format: formatMemory
+  });
+
+  syncResourceForm(snapshot);
+  renderResourceEvents(snapshot.events || []);
+  renderResourceProcesses(snapshot.processes || []);
+}
+
+function syncResourceForm(snapshot) {
+  const settings = snapshot.settings || {};
+  const ramMax = Math.max(1024, Math.min(65536, Math.floor(snapshot.systemMemory / 256) * 256));
+  if (Number(els.resRamLimit.max) !== ramMax) els.resRamLimit.max = String(ramMax);
+
+  els.resLimits.classList.toggle('is-off', !settings.enabled);
+  els.resHardCap.disabled = !snapshot.hardCap.available;
+  els.resHardCapNote.textContent = snapshot.hardCap.available
+    ? (snapshot.hardCap.active ? 'Aktiv: Windows begrenzt die CPU-Zeit des Browsers.' : 'Windows begrenzt die CPU-Zeit des Browsers.')
+    : `Nicht verfügbar. ${snapshot.hardCap.reason} Es wird sanft geregelt.`;
+
+  // Während der Eingabe nicht mit älteren Werten überschreiben.
+  if (Date.now() - resourceEditedAt < 2500) return;
+  els.resEnabled.checked = Boolean(settings.enabled);
+  els.resCpuLimit.value = String(settings.cpuLimit ?? 50);
+  els.resRamLimit.value = String(settings.ramLimit > 0 ? settings.ramLimit : ramMax);
+  els.resHardCap.checked = Boolean(settings.hardCap) && snapshot.hardCap.available;
+  els.resLowPriority.checked = Boolean(settings.lowPriority);
+  updateResourceOutputs();
+}
+
+function updateResourceOutputs() {
+  els.resCpuLimitValue.textContent = Number(els.resCpuLimit.value) >= 100 ? 'Kein Limit' : `${els.resCpuLimit.value} %`;
+  const ram = Number(els.resRamLimit.value);
+  els.resRamLimitValue.textContent = ram >= Number(els.resRamLimit.max) ? 'Kein Limit' : formatMemory(ram);
+}
+
+function saveResourceSettings() {
+  resourceEditedAt = Date.now();
+  updateResourceOutputs();
+  if (resourceSaveTimer) clearTimeout(resourceSaveTimer);
+  resourceSaveTimer = setTimeout(() => {
+    resourceSaveTimer = null;
+    const ram = Number(els.resRamLimit.value);
+    saveSettingsPatch({
+      performance: {
+        enabled: els.resEnabled.checked,
+        cpuLimit: Number(els.resCpuLimit.value),
+        ramLimit: ram >= Number(els.resRamLimit.max) ? 0 : ram,
+        hardCap: els.resHardCap.disabled ? Boolean(appSettings.performance?.hardCap) : els.resHardCap.checked,
+        lowPriority: els.resLowPriority.checked
+      }
+    });
+    setTimeout(refreshResources, 400);
+  }, 250);
+}
+
+function renderResourceEvents(events) {
+  els.resEventsSection.hidden = events.length === 0;
+  els.resEvents.replaceChildren(...events.map((event) => {
+    const item = document.createElement('li');
+    const time = document.createElement('time');
+    time.textContent = new Date(event.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const text = document.createElement('span');
+    text.textContent = event.text;
+    item.append(time, text);
+    return item;
+  }));
+}
+
+function renderResourceProcesses(processes) {
+  const sorted = [...processes].sort((a, b) => (b[resourceSort] - a[resourceSort]) || a.name.localeCompare(b.name));
+  const fragment = document.createDocumentFragment();
+
+  for (const row of sorted) {
+    const item = document.createElement('li');
+    item.className = `res-proc res-proc--${row.kind}${row.sleeping ? ' is-sleeping' : ''}`;
+    // Fokussierbar, damit die Aktionen auch per Tastatur erreichbar sind.
+    if (row.actions?.length) item.tabIndex = 0;
+
+    const icon = document.createElement('span');
+    icon.className = 'res-proc__icon';
+    icon.setAttribute('aria-hidden', 'true');
+    const favicon = row.tabId ? state.tabs.find((tab) => tab.id === row.tabId)?.favicon : '';
+    if (favicon && /^(https?:|data:image\/)/.test(favicon)) {
+      const img = document.createElement('img');
+      img.src = favicon;
+      img.alt = '';
+      icon.appendChild(img);
+    } else {
+      icon.textContent = RESOURCE_KIND_ICONS[row.kind] || 'P';
+    }
+
+    const text = document.createElement('span');
+    text.className = 'res-proc__text';
+    const name = document.createElement('span');
+    name.className = 'res-proc__name';
+    name.textContent = row.name;
+    name.title = row.name;
+    const detail = document.createElement('span');
+    detail.className = 'res-proc__detail';
+    detail.textContent = row.pid ? `${row.detail} · PID ${row.pid}` : row.detail;
+    text.append(name, detail);
+
+    const cpu = document.createElement('span');
+    cpu.className = 'res-proc__num';
+    cpu.classList.toggle('is-sorted', resourceSort === 'cpu');
+    cpu.textContent = row.sleeping ? '–' : formatPercent(row.cpu);
+    cpu.title = 'CPU';
+    const memory = document.createElement('span');
+    memory.className = 'res-proc__num';
+    memory.classList.toggle('is-sorted', resourceSort === 'memory');
+    memory.textContent = row.sleeping ? '–' : formatMemory(row.memory);
+    memory.title = 'RAM';
+
+    const actions = document.createElement('span');
+    actions.className = 'res-proc__actions';
+    for (const action of row.actions || []) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `res-proc__btn res-proc__btn--${action}`;
+      const confirming = action === 'kill' && resourcePendingKill === row.pid;
+      button.textContent = confirming ? 'Sicher?' : RESOURCE_ACTION_LABELS[action];
+      button.classList.toggle('is-confirm', confirming);
+      button.addEventListener('click', () => runResourceAction(action, row));
+      actions.appendChild(button);
+    }
+
+    item.append(icon, text, cpu, memory, actions);
+    fragment.appendChild(item);
+  }
+  els.resProcs.replaceChildren(fragment);
+}
+
+async function runResourceAction(action, row) {
+  // Hilfsprozesse erst nach einer Bestätigung beenden.
+  if (action === 'kill' && resourcePendingKill !== row.pid) {
+    resourcePendingKill = row.pid;
+    if (resourceSnapshot) renderResourceProcesses(resourceSnapshot.processes);
+    return;
+  }
+  resourcePendingKill = null;
+  await api.resourceAction({ type: action, pid: row.pid, tabId: row.tabId });
+  setTimeout(refreshResources, 2100);
+}
+
+bindResourceChart(els.resCpuChart);
+bindResourceChart(els.resRamChart);
+
+els.resourceHudToggle?.addEventListener('click', () => {
+  if (resourcePanelOpen()) closeResourcePanel();
+  else openResourcePanel();
+});
+els.resPanelClose?.addEventListener('click', closeResourcePanel);
+
+for (const input of [els.resEnabled, els.resHardCap, els.resLowPriority]) {
+  input?.addEventListener('change', saveResourceSettings);
+}
+for (const input of [els.resCpuLimit, els.resRamLimit]) {
+  input?.addEventListener('input', saveResourceSettings);
+}
+
+for (const button of els.resSortButtons) {
+  button.addEventListener('click', () => {
+    resourceSort = button.dataset.sort === 'memory' ? 'memory' : 'cpu';
+    for (const other of els.resSortButtons) {
+      const selected = other === button;
+      other.classList.toggle('is-active', selected);
+      other.setAttribute('aria-pressed', String(selected));
+    }
+    if (resourceSnapshot) renderResourceProcesses(resourceSnapshot.processes);
+  });
+}
+
+api.onOpenTaskManager?.(() => {
+  if (resourcePanelOpen()) closeResourcePanel();
+  else openResourcePanel({ focusProcesses: true });
+});
+api.onResourceEvent?.(() => refreshResources());
 
 /* --------------------------------------------------------------- Media-Hub */
 
@@ -3849,6 +4212,7 @@ async function refreshMediaHub({ force = false } = {}) {
 
 function openMediaHub() {
   if (!els.mediaHub || !els.mediaHub.hidden) return;
+  if (resourcePanelOpen()) closeResourcePanel();
 
   els.mediaHub.hidden = false;
   els.mediaHub.setAttribute('aria-hidden', 'false');
@@ -4182,9 +4546,8 @@ function reportLayout() {
   const chromeHeight = Math.round(els.chrome.getBoundingClientRect().height);
   const vertical = document.body.dataset.tabLayout === 'vertical';
   const sidebarWidth = vertical ? Math.round(els.sidebar.getBoundingClientRect().width) : 0;
-  const dockWidth = els.mediaHub && !els.mediaHub.hidden
-    ? Math.round(els.mediaHub.getBoundingClientRect().width)
-    : 0;
+  const dockPanel = [els.mediaHub, els.resPanel].find((panel) => panel && !panel.hidden);
+  const dockWidth = dockPanel ? Math.round(dockPanel.getBoundingClientRect().width) : 0;
 
   document.documentElement.style.setProperty('--chrome-height', `${chromeHeight}px`);
   document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);

@@ -21,7 +21,7 @@ a fully customizable interface. The browser UI is in German.
 - Per-tab volume, boost up to 300 % (Web Audio)
 - Picture-in-picture (`Ctrl+Shift+P`)
 - Gaming mode: background tabs are put to sleep
-- Resource HUD with RAM/CPU per tab
+- Resources panel (`Shift+Esc`): live CPU/RAM charts, process manager (close, sleep or end individual processes), CPU and RAM limits, low priority mode
 
 **Data & privacy**
 - Favorites bar, bookmarks with folders and tags, history, downloads
@@ -73,6 +73,23 @@ when the system asks for reduced motion.
 Changes apply immediately and are saved automatically after 250 ms. "Reset"
 restores the Nova theme.
 
+## Resources panel
+
+The bar-chart button in the toolbar (or `Shift+Esc`) opens the resources panel
+on the right. It shows the browser's total CPU (as a share of all cores) and RAM
+over the last three minutes, the latest automatic actions and a process list
+sorted by CPU or RAM.
+
+| Setting | Effect |
+| --- | --- |
+| **Max. CPU** | Hard cap on Windows: all browser processes run in a job object whose CPU time Windows limits. Without `koffi` (or on other systems) the limit is soft: background tabs are throttled and the busiest background tab is put to sleep. |
+| **Max. RAM** | Soft limit: above it, the background tab using the most memory is put to sleep. Active, pinned and audible tabs stay awake. A hard RAM cap is not used because it would crash processes. |
+| **Low priority** | Lowers the priority of all browser processes so games get the CPU first. |
+
+In the process list, tabs can be put to sleep, woken up or closed. Helper
+processes (GPU, services, extensions) can be ended after a confirmation;
+Chromium restarts them when needed.
+
 ## Default hotkeys
 
 | Action | Keys |
@@ -93,6 +110,7 @@ restores the Nova theme.
 | Fullscreen | `F11` |
 | Print | `Ctrl+P` |
 | Zoom in / out / reset | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
+| Resources & processes | `Shift+Esc` |
 | DevTools | `F12`, `Ctrl+Shift+I` |
 
 Hotkeys can be changed in `settings.json` as arrays of accelerators such as
@@ -137,6 +155,8 @@ src/
 ├─ main/
 │  ├─ main.js       Window, IPC, jtech:// protocol, hotkeys, extensions, downloads, ad blocker
 │  ├─ tabs.js       TabManager: one WebContentsView per tab, split view, media, script injection
+│  ├─ resources.js  Resource manager: metrics, process list, limits
+│  ├─ job-limit.js  Hard CPU cap via a Windows job object (koffi)
 │  ├─ config.js     Load, save and validate settings.json
 │  └─ shortcuts.js  Accelerator parser and matching
 ├─ preload/
@@ -172,7 +192,7 @@ tests/              Hotkeys, settings, theme validation (node:test)
 2. **Extensions**: integrate `electron-chrome-extensions` (popups, toolbar icons, chrome.* APIs)
 3. **Auto-update** (electron-updater is built in but still needs an update server)
 4. **Sidebar** with quick access (Discord, Twitch, …)
-5. Force dark mode, resource limiter
+5. Force dark mode
 
 ## License
 
