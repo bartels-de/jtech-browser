@@ -61,7 +61,9 @@ const DEFAULT_SETTINGS = {
     restoreSession: true,
     gamingMode: false,
     userName: '',
-    density: 'normal'
+    density: 'normal',
+    // Inaktive Tabs nach X Minuten schlafen legen (0 = aus)
+    autoSleepMinutes: 30
   },
   privacy: {
     adblock: true,
@@ -284,6 +286,8 @@ function normalizeSearch(input, fallback = DEFAULT_SETTINGS.search) {
 
 /* ------------------------------------------------------------- Oberfläche */
 
+const AUTO_SLEEP_OPTIONS = [0, 15, 30, 60, 120];
+
 function normalizeUi(input, fallback = DEFAULT_SETTINGS.ui) {
   const ui = input && typeof input === 'object' ? input : {};
   const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_SETTINGS.ui;
@@ -295,7 +299,10 @@ function normalizeUi(input, fallback = DEFAULT_SETTINGS.ui) {
     restoreSession: typeof ui.restoreSession === 'boolean' ? ui.restoreSession : (base.restoreSession ?? true),
     gamingMode: typeof ui.gamingMode === 'boolean' ? ui.gamingMode : (base.gamingMode ?? false),
     userName: typeof ui.userName === 'string' ? ui.userName.trim().slice(0, 60) : (base.userName ?? ''),
-    density: ['compact', 'normal', 'comfortable'].includes(ui.density) ? ui.density : (base.density ?? 'normal')
+    density: ['compact', 'normal', 'comfortable'].includes(ui.density) ? ui.density : (base.density ?? 'normal'),
+    autoSleepMinutes: AUTO_SLEEP_OPTIONS.includes(Number(ui.autoSleepMinutes))
+      ? Number(ui.autoSleepMinutes)
+      : (AUTO_SLEEP_OPTIONS.includes(Number(base.autoSleepMinutes)) ? Number(base.autoSleepMinutes) : 30)
   };
 }
 
@@ -910,7 +917,7 @@ function removeFavorite(id) {
 
 function addHistoryEntry({ url, title } = {}) {
   const normalized = normalizeFavoriteUrl(url);
-  if (!normalized) return getHistory();
+  if (!normalized) return null;
 
   const history = loadHistory();
   const now = Date.now();
@@ -930,7 +937,8 @@ function addHistoryEntry({ url, title } = {}) {
   }
 
   scheduleHistorySave();
-  return getHistory();
+  // Nur den neuen bzw. aktualisierten Eintrag zurückgeben (statt bis zu 2000).
+  return { ...history[0] };
 }
 function addSaved(entry) {
   const current = loadSettings();

@@ -3,7 +3,7 @@
 A gaming-oriented desktop browser built on **Electron 45** (Chromium), focused on
 a fully customizable interface. The browser UI is in German.
 
-## Features (v0.8.1)
+## Features (v0.8.2)
 
 **Tabs & navigation**
 - Vertical tabs in the sidebar (resizable by dragging)
@@ -21,6 +21,7 @@ a fully customizable interface. The browser UI is in German.
 - Per-tab volume, boost up to 300 % (Web Audio)
 - Picture-in-picture (`Ctrl+Shift+P`)
 - Gaming mode: background tabs are put to sleep
+- Performance: lazy session restore (only the active tab loads), inactive tabs sleep after a configurable time, background tabs are throttled (except tabs playing audio), animations pause while the window is in the background
 - Resources panel (`Shift+Esc`): live CPU/RAM charts, process manager (close, sleep or end individual processes), CPU and RAM limits, low priority mode
 
 **Data & privacy**
@@ -108,7 +109,7 @@ sorted by CPU or RAM.
 
 | Setting | Effect |
 | --- | --- |
-| **Max. CPU** | Hard cap on Windows: all browser processes run in a job object whose CPU time Windows limits. Without `koffi` (or on other systems) the limit is soft: background tabs are throttled and the busiest background tab is put to sleep. |
+| **Max. CPU** | Hard cap on Windows: all browser processes run in a job object whose CPU time Windows limits. Without `koffi` (or on other systems) the limit is soft: the busiest background tab is put to sleep. |
 | **Max. RAM** | Soft limit: above it, the background tab using the most memory is put to sleep. Active, pinned and audible tabs stay awake. A hard RAM cap is not used because it would crash processes. |
 | **Low priority** | Lowers the priority of all browser processes so games get the CPU first. |
 

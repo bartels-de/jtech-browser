@@ -43,10 +43,19 @@ test('normalizeUi validiert Tab-Layout und Favoritenleiste', () => {
     restoreSession: true,
     gamingMode: false,
     userName: '',
-    density: 'normal'
+    density: 'normal',
+    autoSleepMinutes: 30
   });
 
   assert.deepEqual(normalizeUi({ tabLayout: 'diagonal', favoritesBar: 'ja' }), DEFAULT_SETTINGS.ui);
+});
+
+test('normalizeUi erlaubt nur feste Zeiten für das automatische Schlafen', () => {
+  assert.equal(normalizeUi({}).autoSleepMinutes, 30);
+  assert.equal(normalizeUi({ autoSleepMinutes: 0 }).autoSleepMinutes, 0);
+  assert.equal(normalizeUi({ autoSleepMinutes: 60 }).autoSleepMinutes, 60);
+  assert.equal(normalizeUi({ autoSleepMinutes: 7 }).autoSleepMinutes, 30);
+  assert.equal(normalizeUi({ autoSleepMinutes: 7 }, { autoSleepMinutes: 120 }).autoSleepMinutes, 120);
 });
 
 test('normalizeFavorites filtert ungültige URLs und Duplikate', () => {

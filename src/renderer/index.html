@@ -803,6 +803,18 @@
                 <input class="switch" id="setting-gaming-mode" type="checkbox" />
               </label>
 
+              <div class="field">
+                <label class="field__label" for="setting-auto-sleep">Inaktive Tabs schlafen legen</label>
+                <select class="select" id="setting-auto-sleep">
+                  <option value="0">Nie</option>
+                  <option value="15">Nach 15 Minuten</option>
+                  <option value="30">Nach 30 Minuten</option>
+                  <option value="60">Nach 1 Stunde</option>
+                  <option value="120">Nach 2 Stunden</option>
+                </select>
+                <p class="field__hint">Spart RAM und CPU. Angeheftete Tabs und Tabs mit Ton bleiben wach; ein Klick weckt den Tab wieder.</p>
+              </div>
+
               <label class="switch-row" for="setting-restore-session">
                 <span class="switch-row__text">
                   <span class="switch-row__title">Sitzung wiederherstellen</span>

@@ -126,6 +126,18 @@ contextBridge.exposeInMainWorld('jtech', {
     return () => ipcRenderer.removeListener('ui:task-manager', listener);
   },
 
+  onHistoryEntry: (callback) => {
+    const listener = (_event, entry) => callback(entry);
+    ipcRenderer.on('history:entry', listener);
+    return () => ipcRenderer.removeListener('history:entry', listener);
+  },
+
+  onWindowFocus: (callback) => {
+    const listener = (_event, focused) => callback(focused);
+    ipcRenderer.on('window:focus', listener);
+    return () => ipcRenderer.removeListener('window:focus', listener);
+  },
+
   onToast: (callback) => {
     const listener = (_event, text) => callback(text);
     ipcRenderer.on('ui:toast', listener);

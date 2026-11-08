@@ -66,17 +66,18 @@ class TabManager {
     this.splitLeftId = null;
     this.splitRightId = null;
     this.splitRatio = 0.5;
+    // Fenster im Vordergrund? Sonst pausieren animierte Startseiten.
+    this.windowFocused = true;
   }
 
   get active() {
     return this.activeId ? this.tabs.get(this.activeId) : null;
   }
 
-  create({ url = 'jtech://newtab', activate = true } = {}) {
-    const id = randomUUID();
-
-    const tab = {
-      id,
+  /** Grundgerüst eines Tabs (ohne View). */
+  newTabRecord(url) {
+    return {
+      id: randomUUID(),
       view: null,
       url,
       displayUrl: url === 'jtech://newtab' ? '' : url,
@@ -91,12 +92,32 @@ class TabManager {
       muted: false,
       audible: false,
       volume: 1,
-      // Nur eine bewusst gesetzte Lautstärke wird beim Laden erneut angewandt.
       volumeExplicit: false,
       mediaActive: false,
       zoom: 1,
-      sleeping: false
+      sleeping: false,
+      lastActiveAt: Date.now(),
+      cursorFxLoaded: false
     };
+  }
+
+  /**
+   * Tab ohne Prozess anlegen (Session-Restore): er erscheint in der Liste und
+   * lädt erst, wenn er aktiviert wird.
+   */
+  createLazy({ url = 'jtech://newtab', title = '', favicon = '' } = {}) {
+    const tab = this.newTabRecord(url);
+    tab.sleeping = true;
+    tab.title = title || (tab.isNewTab ? 'Neuer Tab' : url);
+    tab.favicon = typeof favicon === 'string' ? favicon : '';
+    this.tabs.set(tab.id, tab);
+    this.emit();
+    return tab;
+  }
+
+  create({ url = 'jtech://newtab', activate = true } = {}) {
+    const tab = this.newTabRecord(url);
+    const { id } = tab;
 
     this.tabs.set(id, tab);
     this.createView(tab, url);
@@ -116,7 +137,8 @@ class TabManager {
         nodeIntegration: false,
         sandbox: true,
         spellcheck: true,
-        backgroundThrottling: false,
+        // Unsichtbare Tabs drosseln; Tabs mit Ton laufen ungebremst (siehe audio-state-changed).
+        backgroundThrottling: true,
         autoplayPolicy: 'no-user-gesture-required'
       }
     });
@@ -157,6 +179,8 @@ class TabManager {
 
     contents.on('audio-state-changed', (_event, audible) => {
       tab.audible = typeof audible === 'boolean' ? audible : contents.isCurrentlyAudible();
+      // Musik/Videos im Hintergrund nicht ausbremsen.
+      if (!contents.isDestroyed()) contents.setBackgroundThrottling(!tab.audible);
       this.emit();
     });
 
@@ -191,6 +215,8 @@ class TabManager {
       tab.url = navUrl;
       tab.displayUrl = navUrl.startsWith('jtech://') ? '' : navUrl;
       tab.mediaActive = false;
+      // Neues Dokument: eingeschleuste Skripte sind weg.
+      tab.cursorFxLoaded = false;
       this.emit();
     });
 
@@ -284,6 +310,12 @@ class TabManager {
   activate(id) {
     const tab = this.tabs.get(id);
     if (!tab) return;
+
+    // Leerlaufzeit zählt ab dem Verlassen eines Tabs.
+    const now = Date.now();
+    const previous = this.activeId ? this.tabs.get(this.activeId) : null;
+    if (previous) previous.lastActiveAt = now;
+    tab.lastActiveAt = now;
 
     if (tab.sleeping) this.wake(id);
 
@@ -831,7 +863,7 @@ class TabManager {
       if (!contents || contents.isDestroyed() || !contents.getURL().startsWith('jtech://newtab')) continue;
       const shown = tab.id === this.activeId ||
         (this.splitMode && (tab.id === this.splitLeftId || tab.id === this.splitRightId));
-      const paused = this.overlayOpen || !shown;
+      const paused = this.overlayOpen || !shown || !this.windowFocused;
       contents.executeJavaScript(
         `(() => { const c = document.querySelector('.bg')?.__jtechBackground; if (c) c.setPaused(${paused}); })();`,
         true
@@ -858,8 +890,45 @@ class TabManager {
       intensity: Number.isFinite(intensity) ? intensity : 60
     };
 
+    // Ohne Effekt nichts in die Seite laden; ein bereits geladener Effekt wird abgeschaltet.
+    if (effect === 'none') {
+      if (tab.cursorFxLoaded) {
+        tab.view.webContents
+          .executeJavaScript(`window.JTechCursorEffects && window.JTechCursorEffects.apply(${JSON.stringify(options)});`, true)
+          .catch(() => {});
+      }
+      return;
+    }
+
     const script = `(() => {\n${CURSOR_FX_SOURCE}\n;if (window.JTechCursorEffects) window.JTechCursorEffects.apply(${JSON.stringify(options)});\n})();`;
+    tab.cursorFxLoaded = true;
     tab.view.webContents.executeJavaScript(script, true).catch(() => {});
+  }
+
+  /**
+   * Tabs schlafen legen, die länger als maxIdleMs nicht benutzt wurden.
+   * Ausgenommen: aktiver/sichtbarer Tab, angeheftete Tabs und Tabs mit Ton.
+   * @returns {number} Anzahl schlafen gelegter Tabs
+   */
+  sleepIdleTabs(maxIdleMs, now = Date.now()) {
+    if (!(maxIdleMs > 0)) return 0;
+    let count = 0;
+    for (const tab of [...this.tabs.values()]) {
+      const visible = tab.id === this.activeId ||
+        (this.splitMode && (tab.id === this.splitLeftId || tab.id === this.splitRightId));
+      if (visible || tab.pinned || tab.audible || tab.sleeping || !tab.view) continue;
+      if (now - (tab.lastActiveAt || now) < maxIdleMs) continue;
+      this.sleep(tab.id);
+      count += 1;
+    }
+    return count;
+  }
+
+  setWindowFocused(focused) {
+    const next = Boolean(focused);
+    if (next === this.windowFocused) return;
+    this.windowFocused = next;
+    this.syncBackgroundPause();
   }
 
   applyMediaTo(tab) {

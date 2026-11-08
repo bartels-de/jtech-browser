@@ -63,7 +63,6 @@ class ResourceManager {
     this.timer = null;
 
     this.hardCapActive = false;
-    this.throttling = false;
     this.lowPriorityPids = new Set();
     this.overCpuSamples = 0;
     this.lastSleepAt = 0;
@@ -101,9 +100,6 @@ class ResourceManager {
       this.hardCapActive = false;
     }
 
-    // Sanft: Hintergrund-Tabs drosseln lassen
-    this.setThrottling(cpuActive);
-
     // Niedrige Priorität
     if (!(enabled && lowPriority)) this.restorePriority();
 
@@ -113,20 +109,8 @@ class ResourceManager {
     this.overCpuSamples = 0;
   }
 
-  setThrottling(on) {
-    const manager = this.getTabManager();
-    if (!manager) return;
-    for (const tab of manager.tabs.values()) {
-      const contents = tab.view?.webContents;
-      if (contents && !contents.isDestroyed()) contents.setBackgroundThrottling(on);
-    }
-    this.throttling = on;
-  }
-
-  /** Neue Tabs übernehmen die aktuelle Drossel-Einstellung. */
-  onTabCreated(contents) {
-    if (this.throttling && contents && !contents.isDestroyed()) contents.setBackgroundThrottling(true);
-  }
+  /** Hintergrund-Drosselung ist jetzt Standard (tabs.js); hier nichts mehr zu tun. */
+  onTabCreated() {}
 
   restorePriority() {
     const normal = this.os.constants?.priority?.PRIORITY_NORMAL ?? 0;

@@ -116,8 +116,8 @@ function createWindow() {
     onNavigate: (tab) => {
       if (!tab?.url || !/^https?:\/\//i.test(tab.url)) return;
       const { addHistoryEntry } = require('./config');
-      const history = addHistoryEntry({ url: tab.url, title: tab.title });
-      if (chrome && !chrome.isDestroyed()) chrome.send('history:update', history);
+      const entry = addHistoryEntry({ url: tab.url, title: tab.title });
+      if (entry && chrome && !chrome.isDestroyed()) chrome.send('history:entry', entry);
     },
     getZoomFactor,
     setZoomFactor,
@@ -146,6 +146,15 @@ function createWindow() {
     chrome.send('update:status', publicUpdateState());
   });
 
+  // Fenster im Hintergrund (z. B. beim Spielen): Animationen pausieren.
+  window.on('focus', () => {
+    tabs?.setWindowFocused(true);
+    if (chrome && !chrome.isDestroyed()) chrome.send('window:focus', true);
+  });
+  window.on('blur', () => {
+    tabs?.setWindowFocused(false);
+    if (chrome && !chrome.isDestroyed()) chrome.send('window:focus', false);
+  });
   window.on('maximize', () => chrome.send('window:state', { maximized: true }));
   window.on('unmaximize', () => chrome.send('window:state', { maximized: false }));
   window.on('enter-full-screen', () => { if (chrome && !chrome.isDestroyed()) chrome.send('window:fullscreen', { fullscreen: true }); });
@@ -196,24 +205,36 @@ function createWindow() {
   window.webContents.once('did-finish-load', () => {
     if (tabs && tabs.tabs.size === 0) {
       if (pendingSession?.tabs?.length) {
-        for (const tabState of pendingSession.tabs) {
-          const tab = tabs.create({ url: tabState.url || 'jtech://newtab', activate: false });
+        // Nur der zuletzt aktive Tab lädt sofort, alle anderen erst beim Anklicken.
+        const storedTabs = pendingSession.tabs;
+        const storedActive = storedTabs.findIndex((entry) => entry.id && entry.id === pendingSession.activeId);
+        const activeIndex = storedActive >= 0 ? storedActive : 0;
+        let restoredActive = null;
+
+        storedTabs.forEach((tabState, index) => {
+          const url = tabState.url || 'jtech://newtab';
+          const tab = index === activeIndex
+            ? tabs.create({ url, activate: false })
+            : tabs.createLazy({ url, title: tabState.title, favicon: tabState.favicon });
+          if (index === activeIndex) restoredActive = tab.id;
           if (tabState.pinned) tabs.setPinned(tab.id, true);
           if (tabState.groupId) tabs.setGroup(tab.id, tabState.groupId);
           if (tabState.muted) tabs.setMuted(tab.id, true);
-          if (tabState.zoom && tabState.zoom !== 1) tabs.zoom('set', tab.id, tabState.zoom);
+          if (tabState.zoom && tabState.zoom !== 1) {
+            if (tab.sleeping) tab.zoom = tabState.zoom;
+            else tabs.zoom('set', tab.id, tabState.zoom);
+          }
           // Normale Lautstärken gehören der Website und werden beim Start nicht
           // überschrieben. Nur eine Verstärkung über 100 % wird wiederhergestellt.
           const storedVolume = Number(tabState.volume);
           if (Number.isFinite(storedVolume) && storedVolume > 1.0001) {
             tabs.setVolume(tab.id, storedVolume, true);
           }
-        }
+        });
 
-        const activeId = pendingSession.activeId;
         pendingSession = null;
 
-        if (activeId && tabs.tabs.has(activeId)) tabs.activate(activeId);
+        if (restoredActive && tabs.tabs.has(restoredActive)) tabs.activate(restoredActive);
         else tabs.activate([...tabs.tabs.keys()][0]);
       } else {
         tabs.create();
@@ -699,20 +720,70 @@ function broadcastDownloads() {
   }
 }
 
+// Filterlisten ändern sich laufend (z. B. für YouTube). Der Cache wird daher
+// höchstens einen Tag verwendet und im Hintergrund erneuert.
+const ADBLOCK_MAX_AGE = 24 * 60 * 60 * 1000;
+let adblockRefreshTimer = null;
+
+function adblockCachePath() {
+  return path.join(app.getPath('userData'), 'adblocker-engine.bin');
+}
+
+async function adblockCacheIsStale() {
+  try {
+    const stats = await fs.promises.stat(adblockCachePath());
+    return Date.now() - stats.mtimeMs > ADBLOCK_MAX_AGE;
+  } catch {
+    return true;
+  }
+}
+
+/** Frische Filterliste laden und als Cache speichern; null bei Fehler. */
+async function downloadAdblockEngine() {
+  try {
+    const { ElectronBlocker } = require('@ghostery/adblocker-electron');
+    const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
+    await fs.promises.writeFile(adblockCachePath(), Buffer.from(blocker.serialize()));
+    return blocker;
+  } catch (error) {
+    console.warn('[adblock] Filterliste konnte nicht aktualisiert werden:', error.message);
+    return null;
+  }
+}
+
 async function enableAdblock() {
   if (adblocker) return;
   try {
     const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-    adblocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
-      path: path.join(app.getPath('userData'), 'adblocker-engine.bin'),
-      read: async (filePath) => fs.promises.readFile(filePath),
-      write: async (filePath, buffer) => fs.promises.writeFile(filePath, buffer)
-    });
+    let blocker = (await adblockCacheIsStale()) ? await downloadAdblockEngine() : null;
+    if (!blocker) {
+      // Aktueller Cache oder Download fehlgeschlagen: vorhandene Liste verwenden.
+      blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
+        path: adblockCachePath(),
+        read: async (filePath) => fs.promises.readFile(filePath),
+        write: async (filePath, buffer) => fs.promises.writeFile(filePath, buffer)
+      });
+    }
+    adblocker = blocker;
     adblocker.enableBlockingInSession(session.defaultSession);
   } catch (error) {
     console.warn('[adblock] Aktivierung fehlgeschlagen:', error.message);
     adblocker = null;
   }
+
+  if (!adblockRefreshTimer) {
+    adblockRefreshTimer = setInterval(refreshAdblock, 6 * 60 * 60 * 1000);
+    adblockRefreshTimer.unref?.();
+  }
+}
+
+async function refreshAdblock() {
+  if (!adblocker || !(await adblockCacheIsStale())) return;
+  const fresh = await downloadAdblockEngine();
+  if (!fresh || !adblocker) return;
+  try { adblocker.disableBlockingInSession(session.defaultSession); } catch {}
+  adblocker = fresh;
+  adblocker.enableBlockingInSession(session.defaultSession);
 }
 
 function disableAdblock() {
@@ -1201,6 +1272,19 @@ if (!gotSingleInstanceLock) {
 
   app.whenReady().then(async () => {
     app.setName('JTech Browser');
+
+    // Wie ein normales Chrome melden: Electron- und App-Kennung entfernen.
+    // Manche Seiten (z. B. Google-Dienste) behandeln unbekannte Browser anders.
+    app.userAgentFallback = app.userAgentFallback
+      .replace(/\s*Electron\/[\d.]+/i, '')
+      .replace(/\(KHTML, like Gecko\) .*? Chrome\//, '(KHTML, like Gecko) Chrome/');
+
+    // Inaktive Tabs nach der eingestellten Zeit schlafen legen.
+    setInterval(() => {
+      const minutes = Number(settings?.ui?.autoSleepMinutes) || 0;
+      const count = tabs?.sleepIdleTabs(minutes * 60 * 1000) || 0;
+      if (count) resources?.addEvent(`${count} inaktive${count === 1 ? 'r Tab' : ' Tabs'} schlafen gelegt (nach ${minutes} Min.)`);
+    }, 60 * 1000).unref?.();
     Menu.setApplicationMenu(null);
 
     settings = loadSettings();
