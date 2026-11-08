@@ -328,3 +328,14 @@ pub async fn bookmarks_remove_folder(app: AppHandle, id: String) -> CmdResult<Va
     let next = app.state::<SettingsStore>().remove_bookmark_folder(&id);
     publish(&app, next)
 }
+
+/* -------------------------------------------------------------------- Log */
+
+/// Errors and notes from the chrome UI (window.onerror etc.) for the log file.
+#[tauri::command]
+pub async fn ui_log(level: String, message: String) -> CmdResult {
+    let level: String = level.chars().filter(char::is_ascii_alphanumeric).take(10).collect();
+    let message: String = message.chars().take(2000).collect();
+    crate::applog!("[ui:{level}] {message}");
+    Ok(())
+}

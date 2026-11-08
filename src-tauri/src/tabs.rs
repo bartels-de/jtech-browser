@@ -209,7 +209,7 @@ fn state_payload(browser: &Browser) -> StatePayload {
 /// Sends an event to the chrome UI only (tab webviews never get IPC events).
 pub fn emit_chrome<S: Serialize + Clone>(app: &AppHandle, event: &str, payload: S) {
     if let Err(error) = app.emit_to(EventTarget::webview(CHROME_LABEL), event, payload) {
-        eprintln!("[tabs] could not emit {event}: {error}");
+        crate::applog!("[tabs] could not emit {event}: {error}");
     }
 }
 
@@ -321,7 +321,7 @@ fn build_tab_webview(app: &AppHandle, id: &str, label: &str, url: Url) -> Webvie
                 let app = app_new_window.clone();
                 tauri::async_runtime::spawn(async move {
                     if let Err(error) = create_tab(&app, url, true) {
-                        eprintln!("[tabs] could not open new window as tab: {error}");
+                        crate::applog!("[tabs] could not open new window as tab: {error}");
                     }
                 });
             }
@@ -541,7 +541,7 @@ pub fn activate(app: &AppHandle, id: &str) {
     };
     if sleeping {
         if let Err(error) = wake(app, id) {
-            eprintln!("[tabs] could not wake tab: {error}");
+            crate::applog!("[tabs] could not wake tab: {error}");
         }
     }
     apply_layout(app);
@@ -610,7 +610,7 @@ pub fn start_auto_sleep(app: &AppHandle) {
                 .unwrap_or(30);
             let count = sleep_idle_tabs(&app, minutes * 60 * 1000);
             if count > 0 {
-                eprintln!("[tabs] {count} idle tab(s) put to sleep after {minutes} min");
+                crate::applog!("[tabs] {count} idle tab(s) put to sleep after {minutes} min");
             }
         }
     });
@@ -725,7 +725,7 @@ pub fn save_session(app: &AppHandle) {
     }
     let path = store.dir().join(SESSION_FILE);
     if let Err(error) = crate::settings::write_json_atomic(&path, &session_value(app)) {
-        eprintln!("[tabs] could not save session: {error}");
+        crate::applog!("[tabs] could not save session: {error}");
     }
 }
 

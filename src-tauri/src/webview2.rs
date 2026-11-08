@@ -87,11 +87,11 @@ pub fn attach_chrome(app: &AppHandle, webview: &Webview) {
     let result = webview.with_webview(move |platform| {
         let controller = platform.controller();
         if let Err(error) = register_accelerators(&controller, &app, Origin::Chrome) {
-            eprintln!("[webview2] could not register chrome hotkeys: {error}");
+            crate::applog!("[webview2] could not register chrome hotkeys: {error}");
         }
     });
     if let Err(error) = result {
-        eprintln!("[webview2] with_webview failed: {error}");
+        crate::applog!("[webview2] with_webview failed: {error}");
     }
 }
 
@@ -101,21 +101,21 @@ pub fn attach(app: &AppHandle, webview: &Webview, id: String) {
     let result = webview.with_webview(move |platform| {
         let controller = platform.controller();
         if let Err(error) = register_accelerators(&controller, &app, Origin::Content(id.clone())) {
-            eprintln!("[webview2] could not register tab hotkeys: {error}");
+            crate::applog!("[webview2] could not register tab hotkeys: {error}");
         }
         let core = match unsafe { controller.CoreWebView2() } {
             Ok(core) => core,
             Err(error) => {
-                eprintln!("[webview2] no CoreWebView2: {error}");
+                crate::applog!("[webview2] no CoreWebView2: {error}");
                 return;
             }
         };
         if let Err(error) = register(&core, &app, &id) {
-            eprintln!("[webview2] could not register tab events: {error}");
+            crate::applog!("[webview2] could not register tab events: {error}");
         }
     });
     if let Err(error) = result {
-        eprintln!("[webview2] with_webview failed: {error}");
+        crate::applog!("[webview2] with_webview failed: {error}");
     }
 }
 

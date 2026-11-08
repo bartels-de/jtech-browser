@@ -139,7 +139,7 @@ impl Inner {
         self.pending.store(false, Ordering::SeqCst);
         let snapshot = Value::Array(self.lock().clone());
         if let Err(error) = write_json_atomic_compact(&self.path, &snapshot) {
-            eprintln!("[history] could not save {}: {error}", self.path.display());
+            crate::applog!("[history] could not save {}: {error}", self.path.display());
         }
     }
 }

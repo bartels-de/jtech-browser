@@ -726,7 +726,7 @@ impl SettingsStore {
 
     fn persist_value(&self, value: &Value) {
         if let Err(error) = write_json_atomic(&self.path, value) {
-            eprintln!("[settings] could not save {}: {error}", self.path.display());
+            crate::applog!("[settings] could not save {}: {error}", self.path.display());
         }
     }
 

@@ -192,7 +192,7 @@ pub fn handle(app: &tauri::AppHandle, input: &KeyInput, origin: Origin) -> bool 
     // Run outside the WebView2 callback: actions create and close webviews.
     tauri::async_runtime::spawn(async move {
         if let Err(error) = run(&app, &action, &origin).await {
-            eprintln!("[shortcuts] {action} failed: {error}");
+            crate::applog!("[shortcuts] {action} failed: {error}");
         }
     });
     true

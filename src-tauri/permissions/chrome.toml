@@ -29,6 +29,7 @@ commands.allow = [
   "save_settings",
   "save_theme",
   "get_update_status",
+  "ui_log",
   "zoom_tab",
   "favorites_add",
   "favorites_remove",

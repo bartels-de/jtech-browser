@@ -7,6 +7,7 @@ mod clipboard;
 mod commands;
 mod history;
 mod input;
+mod log;
 mod newtab;
 mod settings;
 mod shortcuts;
@@ -45,11 +46,12 @@ fn set_app_user_model_id() {
     // SAFETY: `id` is a NUL-terminated UTF-16 string that outlives the call.
     let result = unsafe { SetCurrentProcessExplicitAppUserModelID(id.as_ptr()) };
     if result < 0 {
-        eprintln!("[main] could not set AppUserModelID: {result:#x}");
+        crate::applog!("[main] could not set AppUserModelID: {result:#x}");
     }
 }
 
 fn main() {
+    log::init();
     // Must run before the first window is created.
     #[cfg(windows)]
     set_app_user_model_id();
@@ -81,6 +83,7 @@ fn main() {
             commands::save_settings,
             commands::save_theme,
             commands::get_update_status,
+            commands::ui_log,
             commands::zoom_tab,
             commands::favorites_add,
             commands::favorites_remove,
@@ -94,7 +97,24 @@ fn main() {
             commands::bookmarks_remove_folder,
         ])
         .setup(|app| {
+            if let Err(error) = setup(app) {
+                crate::applog!("[setup] failed: {error}");
+                return Err(error);
+            }
+            crate::applog!("[setup] done, log file: {:?}", log::path());
+            Ok(())
+        })
+        .run(tauri::generate_context!())
+        .unwrap_or_else(|error| {
+            crate::applog!("[main] error while running: {error}");
+            std::process::exit(1);
+        });
+}
+
+fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    {
             let config_dir = app.path().app_config_dir()?;
+            crate::applog!("[setup] config dir {}", config_dir.display());
             app.manage(SettingsStore::load(&config_dir));
 
             let window = WindowBuilder::new(app, WINDOW_LABEL)
@@ -113,7 +133,16 @@ fn main() {
                 CHROME_LABEL,
                 WebviewUrl::App("renderer/index.html".into()),
             )
-            .on_navigation(chrome_navigation_allowed)
+            .on_navigation(|url| {
+                let allowed = chrome_navigation_allowed(url);
+                if !allowed {
+                    crate::applog!("[chrome] blocked navigation to {url}");
+                }
+                allowed
+            })
+            .on_page_load(|_webview, payload| {
+                crate::applog!("[chrome] page load {:?}: {}", payload.event(), payload.url());
+            })
             .on_new_window(move |url, _features| {
                 // Links from the UI (changelog, help, ...) open as tabs.
                 if matches!(url.scheme(), "http" | "https") {
@@ -130,6 +159,8 @@ fn main() {
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(size.width, size.height),
             )?;
+            crate::applog!("[setup] chrome webview created ({}x{})", size.width, size.height);
+            // Optional WebView2 extras: failures are logged, never fatal.
             #[cfg(windows)]
             webview2::attach_chrome(app.handle(), &chrome);
             #[cfg(not(windows))]
@@ -139,7 +170,5 @@ fn main() {
             window.on_window_event(move |event| tabs::on_window_event(&handle, event));
             tabs::start_auto_sleep(app.handle());
             Ok(())
-        })
-        .run(tauri::generate_context!())
-        .expect("error while running JTech Browser");
+    }
 }

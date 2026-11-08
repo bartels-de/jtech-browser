@@ -15,6 +15,21 @@
   const { invoke } = tauri.core;
   const { listen } = tauri.event;
 
+  // Send UI errors to the app log file (logs/jtech.log next to settings).
+  function logToFile(level, message) {
+    try {
+      invoke('ui_log', { level, message: String(message).slice(0, 2000) }).catch(() => {});
+    } catch {}
+  }
+  window.addEventListener('error', (event) => {
+    const where = event.filename ? ` (${event.filename}:${event.lineno}:${event.colno})` : '';
+    logToFile('error', `${event.message || event.error}${where}`);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    logToFile('error', `unhandled rejection: ${reason && reason.stack ? reason.stack : reason}`);
+  });
+
   /* ------------------------------------------------- Tauri-only UI tweaks */
 
   // Chrome extensions are not supported in the Tauri build: hide the
@@ -106,7 +121,11 @@
   // state and opens the first tab), so no event gets lost.
   Promise.all(EVENTS.map((name) => listen(name, (event) => dispatch(name, event.payload))))
     .then(() => invoke('chrome_ready'))
-    .catch((error) => console.error('[tauri-bridge] start failed:', error));
+    .then(() => logToFile('info', 'chrome UI ready'))
+    .catch((error) => {
+      console.error('[tauri-bridge] start failed:', error);
+      logToFile('error', `bridge start failed: ${error}`);
+    });
 
   /* -------------------------------------------------------------- Calls */
 
