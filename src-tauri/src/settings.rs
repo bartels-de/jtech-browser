@@ -11,6 +11,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Map, Value};
 
+use crate::history::HistoryStore;
+
 const THEME_VERSION: i64 = 2;
 
 /// Sections that hold plain lists.
@@ -228,6 +230,28 @@ fn normalize_ui(input: &Value, base: &Value) -> Value {
     ui
 }
 
+/// Port of `normalizeFavoriteUrl`: only http(s) URLs, normalized.
+pub fn normalize_favorite_url(value: Option<&Value>) -> Option<String> {
+    let url = url::Url::parse(value?.as_str()?.trim()).ok()?;
+    matches!(url.scheme(), "http" | "https").then(|| url.to_string())
+}
+
+/// Port of `favoriteTitle`: the given title (max 120 chars) or the host
+/// without "www.".
+pub fn favorite_title(value: Option<&Value>, url: &str) -> String {
+    let title = value.and_then(Value::as_str).map(str::trim).unwrap_or("");
+    if !title.is_empty() {
+        return title.chars().take(120).collect();
+    }
+    match url::Url::parse(url).ok().and_then(|u| u.host_str().map(str::to_string)) {
+        Some(host) => {
+            let stripped = if host.to_ascii_lowercase().starts_with("www.") { &host[4..] } else { &host[..] };
+            if stripped.is_empty() { url.to_string() } else { stripped.to_string() }
+        }
+        None => url.to_string(),
+    }
+}
+
 fn list_or_empty(value: Option<&Value>) -> Value {
     match value {
         Some(Value::Array(items)) => Value::Array(items.clone()),
@@ -250,13 +274,23 @@ fn now_millis() -> u128 {
 /// Writes JSON atomically: first `<file>.tmp`, then rename over the target.
 /// `std::fs::rename` replaces an existing file on Windows as well.
 pub fn write_json_atomic(path: &Path, value: &Value) -> std::io::Result<()> {
+    let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
+    write_text_atomic(path, &text)
+}
+
+/// Same as `write_json_atomic` without indentation (history.json).
+pub fn write_json_atomic_compact(path: &Path, value: &Value) -> std::io::Result<()> {
+    let text = serde_json::to_string(value).map_err(std::io::Error::other)?;
+    write_text_atomic(path, &text)
+}
+
+fn write_text_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
     let tmp = PathBuf::from(tmp);
-    let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     fs::write(&tmp, text)?;
     fs::rename(&tmp, path)
 }
@@ -310,15 +344,14 @@ fn normalize_loaded(stored: Value) -> Value {
 
 pub struct SettingsStore {
     path: PathBuf,
-    history_path: PathBuf,
     data: Mutex<Value>,
+    pub history: HistoryStore,
 }
 
 impl SettingsStore {
     /// Loads (or creates) `settings.json` in `dir`.
     pub fn load(dir: &Path) -> Self {
         let path = dir.join("settings.json");
-        let history_path = dir.join("history.json");
 
         let mut stored = read_json(&path);
         if stored.is_none() && path.exists() {
@@ -331,8 +364,8 @@ impl SettingsStore {
         let data = normalize_loaded(stored.unwrap_or_else(|| json!({})));
         let store = Self {
             path,
-            history_path,
             data: Mutex::new(data),
+            history: HistoryStore::load(dir),
         };
         store.persist();
         store
@@ -354,7 +387,7 @@ impl SettingsStore {
     }
 
     fn history(&self) -> Value {
-        list_or_empty(read_json(&self.history_path).as_ref())
+        self.history.entries()
     }
 
     /// Full settings value (used internally, e.g. for the start page).
@@ -421,9 +454,7 @@ impl SettingsStore {
                 current.clone()
             };
             if let Some(history) = patch.get("history").filter(|v| v.is_array()) {
-                if let Err(error) = write_json_atomic(&self.history_path, history) {
-                    eprintln!("[settings] could not save history: {error}");
-                }
+                self.history.set(history);
             }
             self.persist_value(&snapshot);
         }

@@ -264,6 +264,7 @@ fn build_tab_webview(app: &AppHandle, id: &str, url: Url) -> WebviewBuilder<taur
             NewWindowResponse::Deny
         })
         .on_document_title_changed(move |_webview, title| {
+            let history_title = title.clone();
             update_tab(&app_title, &id_title, |tab| {
                 tab.title = if title.trim().is_empty() {
                     NEW_TAB_TITLE.to_string()
@@ -271,6 +272,10 @@ fn build_tab_webview(app: &AppHandle, id: &str, url: Url) -> WebviewBuilder<taur
                     title
                 };
             });
+            // Titles often arrive after the load finished.
+            if let Some(url) = tab_url(&app_title, &id_title) {
+                record_history(&app_title, &url, &history_title, true);
+            }
         })
         .on_page_load(move |_webview, payload| {
             let url = payload.url().clone();
@@ -288,7 +293,39 @@ fn build_tab_webview(app: &AppHandle, id: &str, url: Url) -> WebviewBuilder<taur
                     tab.title = NEW_TAB_TITLE.to_string();
                 }
             });
+            if matches!(event, PageLoadEvent::Finished) {
+                let title = tab_title(&app_load, &id_load).unwrap_or_default();
+                record_history(&app_load, url.as_str(), &title, false);
+            }
         })
+}
+
+fn tab_url(app: &AppHandle, id: &str) -> Option<String> {
+    with_browser(app, |b| b.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()))
+}
+
+fn tab_title(app: &AppHandle, id: &str) -> Option<String> {
+    with_browser(app, |b| b.tabs.iter().find(|t| t.id == id).map(|t| t.title.clone()))
+}
+
+/// Adds a visit of an http(s) page to history.json (or only updates the
+/// newest entry's title) and sends the entry to the UI like main.js.
+fn record_history(app: &AppHandle, url: &str, title: &str, title_only: bool) {
+    let lower = url.to_ascii_lowercase();
+    if !(lower.starts_with("http://") || lower.starts_with("https://")) || newtab::is_internal(url) {
+        return;
+    }
+    let Some(store) = app.try_state::<crate::settings::SettingsStore>() else {
+        return;
+    };
+    let entry = if title_only {
+        store.history.update_title(url, title)
+    } else {
+        store.history.add(url, title)
+    };
+    if let Some(entry) = entry {
+        emit_chrome(app, "history:entry", entry);
+    }
 }
 
 /// Turns a resolved omnibox target into a loadable URL.
@@ -471,6 +508,11 @@ pub fn on_window_event(app: &AppHandle, event: &WindowEvent) {
             }
         }
         WindowEvent::Focused(focused) => emit_chrome(app, "window:focus", *focused),
+        WindowEvent::CloseRequested { .. } => {
+            if let Some(store) = app.try_state::<crate::settings::SettingsStore>() {
+                store.history.flush();
+            }
+        }
         _ => {}
     }
 }

@@ -39,6 +39,7 @@
     'window:focus',
     'theme:update',
     'settings:update',
+    'history:entry',
     'ui:focus-omnibox'
   ];
   const subscribers = new Map(EVENTS.map((name) => [name, new Set()]));
@@ -241,7 +242,7 @@
     onOpenTabSearch: unsubscribeNoop,
     onOpenCommandPalette: unsubscribeNoop,
     onOpenTaskManager: unsubscribeNoop,
-    onHistoryEntry: unsubscribeNoop,
+    onHistoryEntry: (callback) => subscribe('history:entry', callback),
     onToast: unsubscribeNoop,
     onUpdateStatus: unsubscribeNoop,
     onResourceEvent: unsubscribeNoop,

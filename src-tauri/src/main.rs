@@ -4,6 +4,7 @@
 #![recursion_limit = "256"]
 
 mod commands;
+mod history;
 mod input;
 mod newtab;
 mod settings;
