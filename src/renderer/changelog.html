@@ -14,13 +14,38 @@
 </head>
 <body>
   <h1>JTech Browser</h1>
-  <p class="version">Version 0.7.0</p>
+  <p class="version">Version 0.8.0</p>
+
+  <h2>Design Studio</h2>
+  <ul>
+    <li>Completely redesigned Design Studio with live preview, preset gallery and saved themes.</li>
+    <li>Eight new animated backgrounds: Network, Synthwave, Flow, Hyperdrive, Hex grid, Nebula, Ribbons and Embers, each with a live preview.</li>
+    <li>Eleven new presets, including the new default Nova and two light themes (Paper, Daylight).</li>
+    <li>Fewer controls on the main tabs; fine-tuning moved to Advanced.</li>
+    <li>Animations pause in gaming mode and in background tabs.</li>
+    <li>Note: your theme is reset to Nova once and old saved themes are removed. Custom CSS is kept.</li>
+  </ul>
+
+  <h2>Extensions</h2>
+  <ul>
+    <li>Real extension popups with Chrome extension APIs (chrome.tabs, chrome.action, context menus).</li>
+    <li>Extension icons and badges in the extensions menu.</li>
+    <li>Warning when an extension needs APIs the browser cannot provide (for example uBlock Origin Lite).</li>
+    <li>Reinstalling an extension now updates it instead of reporting an error.</li>
+  </ul>
+
+  <h2>Performance</h2>
+  <ul>
+    <li>Browsing history is stored in its own file and saved in batches instead of rewriting all settings on every page load.</li>
+  </ul>
 
   <h2>Fixes</h2>
   <ul>
     <li>Bang commands (!yt, !g, !gh, custom bangs) now work in the address bar, not only on the new tab page.</li>
     <li>Loading an extension from a file (.crx/.zip/folder) no longer fails and is saved correctly.</li>
     <li>Bookmark folders can be deleted again.</li>
+    <li>Sleeping tabs in gaming mode no longer disappear from the tab list.</li>
+    <li>Quitting with sleeping tabs no longer crashes.</li>
     <li>Density buttons in settings no longer trigger a stale tab layout save.</li>
   </ul>
 

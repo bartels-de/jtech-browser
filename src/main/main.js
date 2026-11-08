@@ -572,6 +572,13 @@ async function installExtensionFromStore(input) {
     const entries = zip.getEntries();
     if (!entries || entries.length === 0) throw new Error('Keine Dateien im CRX');
 
+    // Bereits installiert: alte Version entladen, bevor die Dateien ersetzt werden.
+    const updated = loadedExtensions.some((item) => item.id === extensionId);
+    if (updated) {
+      try { session.defaultSession.extensions.removeExtension(extensionId); } catch {}
+      loadedExtensions = loadedExtensions.filter((item) => item.id !== extensionId);
+    }
+
     const extDir = path.join(app.getPath('userData'), 'extensions', extensionId);
     fs.mkdirSync(extDir, { recursive: true });
     // Alten Inhalt entfernen
@@ -587,7 +594,7 @@ async function installExtensionFromStore(input) {
       current.extensions.push(extDir);
       current.extensions = normalizeExtensions(current.extensions);
     }
-    return metadata;
+    return { ...metadata, updated };
   } catch (error) {
     console.warn('[extensions] Store-Installation fehlgeschlagen:', error.message);
     return null;
@@ -814,7 +821,13 @@ function registerIpc() {
       if (chrome && !chrome.isDestroyed()) chrome.send('extensions:update', loadedExtensions);
       applySettingsUpdate(updateSettings({ extensions: loadSettings().extensions }));
     }
-    return loadedExtensions;
+    // Ergebnis explizit melden: eine Neuinstallation ändert die Länge der Liste nicht.
+    return {
+      ok: Boolean(metadata),
+      updated: Boolean(metadata?.updated),
+      id: metadata?.id || null,
+      extensions: loadedExtensions
+    };
   });
 
   ipcMain.handle('extensions:load', async () => {
@@ -827,7 +840,9 @@ function registerIpc() {
       ]
     });
 
-    if (result.canceled || !result.filePaths?.length) return loadedExtensions;
+    if (result.canceled || !result.filePaths?.length) {
+      return { ok: false, canceled: true, id: null, extensions: loadedExtensions };
+    }
 
     const selectedPath = result.filePaths[0];
     let extPath = selectedPath;
@@ -864,7 +879,7 @@ function registerIpc() {
         extPath = extDir;
       } catch (error) {
         console.warn('[extensions] Entpacken fehlgeschlagen:', error.message);
-        return loadedExtensions;
+        return { ok: false, canceled: false, id: null, extensions: loadedExtensions };
       }
     }
 
@@ -880,7 +895,7 @@ function registerIpc() {
     }
 
     if (chrome && !chrome.isDestroyed()) chrome.send('extensions:update', loadedExtensions);
-    return loadedExtensions;
+    return { ok: Boolean(metadata), canceled: false, id: metadata?.id || null, extensions: loadedExtensions };
   });
 
   ipcMain.handle('extensions:open-popup', (_event, payload) => {
