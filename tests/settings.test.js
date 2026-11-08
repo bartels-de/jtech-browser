@@ -43,7 +43,8 @@ test('normalizeUi validiert Tab-Layout und Favoritenleiste', () => {
     restoreSession: true,
     gamingMode: false,
     userName: '',
-    density: 'normal'
+    density: 'normal',
+    autoSleepMinutes: 30
   });
 
   assert.deepEqual(normalizeUi({ tabLayout: 'diagonal', favoritesBar: 'ja' }), DEFAULT_SETTINGS.ui);
