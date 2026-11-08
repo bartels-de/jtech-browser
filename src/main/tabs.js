@@ -35,13 +35,14 @@ class TabManager {
    * @param {(state: object) => void} deps.onState
    * @param {(input: object) => boolean} deps.onInput
    */
-  constructor(window, { onState, onInput, getTheme, getSearch, getBangs, getUserName, getShortcuts, onFindResult, onNavigate, getZoomFactor, setZoomFactor, onViewCreated, onTabActivated, getContextMenuItems }) {
+  constructor(window, { onState, onInput, getTheme, getSearch, getBangs, getHistory, getUserName, getShortcuts, onFindResult, onNavigate, getZoomFactor, setZoomFactor, onViewCreated, onTabActivated, getContextMenuItems }) {
     this.window = window;
     this.onState = onState;
     this.onInput = onInput;
     this.getTheme = typeof getTheme === 'function' ? getTheme : () => null;
     this.getSearch = typeof getSearch === 'function' ? getSearch : () => null;
     this.getBangs = typeof getBangs === 'function' ? getBangs : () => [];
+    this.getHistory = typeof getHistory === 'function' ? getHistory : () => [];
     this.getUserName = typeof getUserName === 'function' ? getUserName : () => '';
     this.getShortcuts = typeof getShortcuts === 'function' ? getShortcuts : () => [];
     this.onFindResult = typeof onFindResult === 'function' ? onFindResult : () => {};
@@ -137,8 +138,8 @@ class TabManager {
         nodeIntegration: false,
         sandbox: true,
         spellcheck: true,
-        // Unsichtbare Tabs drosseln; Tabs mit Ton laufen ungebremst (siehe audio-state-changed).
-        backgroundThrottling: true,
+        // Kein Throttling: YouTube/Twitter laden sonst erst nach Reload.
+        backgroundThrottling: false,
         autoplayPolicy: 'no-user-gesture-required'
       }
     });
@@ -257,10 +258,15 @@ class TabManager {
       if (!/^(https?|jtech|chrome-extension):/i.test(targetUrl)) event.preventDefault();
     });
 
-    contents.setWindowOpenHandler(({ url: target }) => {
-      if (/^(https?|chrome-extension):\/\//i.test(target)) {
-        this.create({ url: target, activate: true });
+    contents.setWindowOpenHandler(({ url: target, disposition }) => {
+      if (!/^(https?|chrome-extension):\/\//i.test(target)) return { action: 'deny' };
+      // Login-/OAuth-Popups (Twitter, Google, GitHub, ...) als echte Fenster öffnen,
+      // damit window.opener und postMessage funktionieren.
+      if (/login|oauth|auth|signin|signup|authorize|callback/i.test(target)) {
+        return { action: 'allow' };
       }
+      // Sonstige Links in einem neuen Tab öffnen.
+      this.create({ url: target, activate: true });
       return { action: 'deny' };
     });
 
@@ -318,6 +324,17 @@ class TabManager {
     tab.lastActiveAt = now;
 
     if (tab.sleeping) this.wake(id);
+
+    // YouTube-Videos laden manchmal erst nach Reload – Workaround.
+    if (tab.url && /youtube\.com/i.test(tab.url) && tab.view?.webContents) {
+      const contents = tab.view.webContents;
+      contents.setBackgroundThrottling(false);
+      if (!tab.loading && !contents.isLoading()) {
+        contents.executeJavaScript('document.querySelector("video") ? "ok" : "reload"').then((r) => {
+          if (r === 'reload') contents.reload();
+        }).catch(() => {});
+      }
+    }
 
     // Split-View: Fokus nur wechseln, beide Views bleiben.
     if (this.splitMode && (id === this.splitLeftId || id === this.splitRightId)) {
@@ -956,7 +973,7 @@ class TabManager {
   applySearchTo(tab) {
     const search = this.getSearch?.();
     if (!search || !tab || !tab.view || tab.view.webContents.isDestroyed()) return;
-    tab.view.webContents.executeJavaScript(buildSearchScript(search, this.getBangs?.()), true).catch(() => {});
+    tab.view.webContents.executeJavaScript(buildSearchScript(search, this.getBangs?.(), this.getHistory?.()), true).catch(() => {});
   }
 
   applyUserTo(tab) {
@@ -977,7 +994,7 @@ class TabManager {
       const contents = tab.view?.webContents;
       if (!contents || contents.isDestroyed()) continue;
       if (!contents.getURL().startsWith('jtech://newtab')) continue;
-      contents.executeJavaScript(buildSearchScript(search, this.getBangs?.()), true).catch(() => {});
+      contents.executeJavaScript(buildSearchScript(search, this.getBangs?.(), this.getHistory?.()), true).catch(() => {});
     }
   }
 
@@ -1186,11 +1203,13 @@ function buildShortcutsScript(shortcuts) {
   return `(() => { window.__JTECH_SHORTCUTS__ = ${JSON.stringify(shortcuts || [])}; if (typeof window.renderShortcuts === 'function') window.renderShortcuts(); })();`;
 }
 
-function buildSearchScript(search, bangs) {
+function buildSearchScript(search, bangs, history) {
   const safeBangs = Array.isArray(bangs) ? bangs : [];
+  const safeHistory = Array.isArray(history) ? history.slice(0, 40) : [];
   return `(() => {
     window.__JTECH_SEARCH__ = ${JSON.stringify(search.urlTemplate || 'https://www.google.com/search?q=%s')};
     window.__JTECH_BANGS__ = ${JSON.stringify(safeBangs)};
+    window.__JTECH_HISTORY__ = ${JSON.stringify(safeHistory)};
   })();`;
 }
 

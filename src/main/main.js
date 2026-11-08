@@ -108,6 +108,7 @@ function createWindow() {
     getTheme: () => settings?.theme || null,
     getSearch: () => settings?.search || null,
     getBangs: () => settings?.bangs || [],
+    getHistory: () => settings?.history || [],
     getUserName: () => settings?.ui?.userName || '',
     getShortcuts: () => settings?.shortcuts || [],
     onFindResult: (result) => {
@@ -943,6 +944,20 @@ function registerIpc() {
     overlayOpen = Boolean(open);
     tabs?.setOverlay(overlayOpen);
     if (overlayOpen) chrome?.focus();
+  });
+
+  ipcMain.on('ui:toggle-webview', (_event, visible) => {
+    if (!tabs) return;
+    const tab = tabs.active;
+    if (!tab?.view) return;
+    const view = tab.view;
+    const isChild = tabs.window.contentView.children.includes(view);
+    if (visible && !isChild) {
+      tabs.window.contentView.addChildView(view);
+      tabs.layout(tabs.window.getContentBounds());
+    } else if (!visible && isChild) {
+      tabs.window.contentView.removeChildView(view);
+    }
   });
 
   ipcMain.on('ui:dock', (_event, width) => {

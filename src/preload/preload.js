@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('jtech', {
   toggleDevTools: () => ipcRenderer.send('ui:devtools'),
   togglePictureInPicture: () => ipcRenderer.send('tabs:picture-in-picture'),
   setOverlay: (open) => ipcRenderer.send('ui:overlay', Boolean(open)),
+  toggleWebview: (visible) => ipcRenderer.send('ui:toggle-webview', Boolean(visible)),
 
   listMedia: () => ipcRenderer.invoke('media:list'),
   mediaCommand: (payload) => ipcRenderer.invoke('media:command', payload),
