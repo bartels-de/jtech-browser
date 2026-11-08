@@ -10,14 +10,10 @@
     <link rel="stylesheet" href="styles/theme.css" />
     <link rel="stylesheet" href="styles/app.css" />
     <link rel="stylesheet" href="styles/obsidian.css" />
+    <link rel="stylesheet" href="styles/studio.css" />
   </head>
   <body data-tab-layout="horizontal">
-    <div class="backdrop" aria-hidden="true">
-      <span class="orb orb--cyan"></span>
-      <span class="orb orb--violet"></span>
-      <span class="orb orb--pink"></span>
-      <div class="grid"></div>
-    </div>
+    <div class="backdrop" aria-hidden="true"></div>
 
     <header class="chrome" id="chrome">
       <div class="titlebar">
@@ -319,8 +315,8 @@
       </footer>
     </aside>
 
-    <section class="studio" id="studio" hidden aria-hidden="true">
-      <div class="studio__sheet" role="dialog" aria-modal="true" aria-labelledby="studio-title">
+    <section class="studio ds" id="studio" hidden aria-hidden="true">
+      <div class="studio__sheet ds__sheet" role="dialog" aria-modal="true" aria-labelledby="studio-title">
         <header class="studio__head">
           <div>
             <p class="studio__eyebrow">JTech Browser</p>
@@ -328,6 +324,7 @@
           </div>
           <div class="studio__head-actions">
             <span class="studio__status" id="theme-status" data-state="idle">Automatisch gespeichert</span>
+            <button class="btn-ghost ds__reset" id="theme-reset" type="button" title="Standard-Theme „Nova“ wiederherstellen">Zurücksetzen</button>
             <button class="icon-btn" id="studio-close" title="Schließen (Esc)" aria-label="Design-Studio schließen">
               <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
                 <path d="M5 5l10 10M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
@@ -336,267 +333,183 @@
           </div>
         </header>
 
-        <div class="studio__body">
-          <aside class="studio__side">
-            <h3 class="studio__label">Presets</h3>
-            <div class="preset-grid" id="preset-grid"></div>
-            <div class="settings__actions">
-              <button class="btn-ghost" id="save-custom-theme" type="button">Eigenes Theme speichern</button>
+        <div class="ds__body">
+          <aside class="ds__side">
+            <div class="ds-preview" aria-hidden="true">
+              <div class="ds-preview__bg" id="ds-preview-bg"></div>
+              <div class="ds-preview__window">
+                <div class="ds-preview__bar">
+                  <span class="ds-preview__dot"></span>
+                  <span class="ds-preview__omni">jtech://newtab</span>
+                </div>
+                <div class="ds-preview__content">
+                  <div class="ds-preview__tabs"><i class="is-active"></i><i></i><i></i></div>
+                  <div class="ds-preview__page">
+                    <span class="ds-preview__clock">20:24</span>
+                    <span class="ds-preview__search"></span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div id="theme-save-form" hidden style="flex-direction:column;gap:8px;margin:12px 0;padding:12px;border:1px solid rgba(255,255,255,0.12);border-radius:10px;">
-              <label style="font-size:12px;opacity:0.8;">Name des neuen Themes</label>
-              <input class="text-input" id="theme-save-name" placeholder="Mein Theme" style="padding:10px;font-size:14px;" />
-              <div style="display:flex;gap:8px;">
-                <button class="btn-ghost" id="theme-save-confirm" type="button">Speichern</button>
+
+            <div class="ds-section-head">
+              <h3 class="ds-label">Presets</h3>
+              <button class="ds-link" id="theme-randomize" type="button" title="Zufälliges Theme erzeugen">Zufällig</button>
+            </div>
+            <div class="ds-presets" id="preset-grid"></div>
+
+            <div class="ds-section-head">
+              <h3 class="ds-label">Meine Themes</h3>
+              <button class="ds-link" id="save-custom-theme" type="button">+ Aktuelles speichern</button>
+            </div>
+            <form class="ds-save" id="theme-save-form" hidden>
+              <input class="text-input" id="theme-save-name" placeholder="Name des Themes" maxlength="40" aria-label="Name des Themes" />
+              <div class="ds-save__actions">
+                <button class="btn-ghost" id="theme-save-confirm" type="submit">Speichern</button>
                 <button class="btn-ghost" id="theme-save-cancel" type="button">Abbrechen</button>
               </div>
-            </div>
+            </form>
+            <div class="ds-presets" id="custom-theme-grid"></div>
+            <p class="ds-empty" id="custom-theme-empty">Noch keine eigenen Themes.</p>
 
-            <div class="studio__preview" aria-hidden="true">
-              <div class="preview__top">
-                <span class="preview__mark"></span>
-                <span class="preview__tab">Beispiel</span>
-              </div>
-              <div class="preview__omnibox">jtech://newtab</div>
-              <div class="preview__line"></div>
-              <div class="preview__line preview__line--short"></div>
-            </div>
-
-            <div class="studio__quick-actions">
-              <button class="btn-ghost" type="button" id="theme-export">Exportieren</button>
+            <div class="ds-actions">
               <button class="btn-ghost" type="button" id="theme-import">Importieren</button>
+              <button class="btn-ghost" type="button" id="theme-export">Exportieren</button>
               <input type="file" id="theme-import-input" accept="application/json,.json" hidden />
-              <button class="btn-ghost" type="button" id="theme-randomize">🎲 Zufällig</button>
             </div>
           </aside>
 
-          <div class="studio__controls">
-            <nav class="studio__tabs" role="tablist" aria-label="Theme-Editor-Bereiche" id="theme-tabs">
-              <button class="studio__tab is-active" type="button" data-tab="colors" role="tab" aria-selected="true">Farben</button>
-              <button class="studio__tab" type="button" data-tab="surface" role="tab" aria-selected="false">Oberfläche</button>
-              <button class="studio__tab" type="button" data-tab="background" role="tab" aria-selected="false">Hintergrund</button>
-              <button class="studio__tab" type="button" data-tab="style" role="tab" aria-selected="false">Stil</button>
-              <button class="studio__tab" type="button" data-tab="effects" role="tab" aria-selected="false">Effekte</button>
-              <button class="studio__tab" type="button" data-tab="advanced" role="tab" aria-selected="false">Erweitert</button>
+          <div class="ds__main">
+            <nav class="ds-tabs" role="tablist" aria-label="Design-Bereiche" id="theme-tabs">
+              <button class="ds-tab is-active" type="button" data-tab="background" role="tab" aria-selected="true">Hintergrund</button>
+              <button class="ds-tab" type="button" data-tab="colors" role="tab" aria-selected="false">Farben</button>
+              <button class="ds-tab" type="button" data-tab="surface" role="tab" aria-selected="false">Oberfläche</button>
+              <button class="ds-tab" type="button" data-tab="cursor" role="tab" aria-selected="false">Cursor</button>
+              <button class="ds-tab" type="button" data-tab="advanced" role="tab" aria-selected="false">Erweitert</button>
             </nav>
 
-            <div class="studio__tab-panels">
-              <!-- Farben -->
-              <div class="studio__tab-panel is-active" data-panel="colors" role="tabpanel" aria-labelledby="theme-tab-colors">
-                <div class="studio__panel-grid">
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-accent">Akzentfarbe</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-accent" value="#ff6b35" aria-label="Akzentfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-accent-hex" value="#FF6B35" maxlength="7" spellcheck="false" aria-label="Akzentfarbe als Hex-Wert" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-accent-alt">Zweite Akzentfarbe</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-accent-alt" value="#00d4aa" aria-label="Zweite Akzentfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-accent-alt-hex" value="#00D4AA" maxlength="7" spellcheck="false" aria-label="Zweite Akzentfarbe als Hex-Wert" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-bg">Hintergrundfarbe</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-bg" value="#0a0a0f" aria-label="Hintergrundfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-bg-hex" value="#0A0A0F" maxlength="7" spellcheck="false" aria-label="Hintergrundfarbe als Hex-Wert" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-text">Textfarbe</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-text" value="#e4e4ec" aria-label="Textfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-text-hex" value="#E4E4EC" maxlength="7" spellcheck="false" aria-label="Textfarbe als Hex-Wert" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-text-dim">Gedämpfter Text</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-text-dim" value="#8a8a9a" aria-label="Gedämpfte Textfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-text-dim-hex" value="#8A8A9A" maxlength="7" spellcheck="false" aria-label="Gedämpfte Textfarbe als Hex-Wert" />
-                      </div>
-                    </div>
-                  </div>
+            <div class="ds-panels">
+              <section class="ds-panel is-active" data-panel="background" role="tabpanel" aria-label="Hintergrund">
+                <div class="ds-bg-grid" id="bg-gallery" role="radiogroup" aria-label="Hintergrund wählen"></div>
+                <div class="ds-field" id="wallpaper-field" hidden>
+                  <label class="ds-field__label" for="theme-wallpaper">Bild-URL</label>
+                  <input class="text-input" type="text" id="theme-wallpaper" placeholder="https://example.com/wallpaper.jpg" spellcheck="false" />
                 </div>
-              </div>
-
-              <!-- Oberfläche -->
-              <div class="studio__tab-panel" data-panel="surface" role="tabpanel" aria-labelledby="theme-tab-surface">
-                <div class="studio__panel-grid">
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-glass">Glas-Deckkraft</label>
-                      <output class="control__value" id="glass-value" for="theme-glass">72 %</output>
-                    </div>
-                    <input class="range" type="range" id="theme-glass" min="20" max="95" step="1" value="72" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-blur">Weichzeichnen</label>
-                      <output class="control__value" id="blur-value" for="theme-blur">20 px</output>
-                    </div>
-                    <input class="range" type="range" id="theme-blur" min="0" max="60" step="1" value="20" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-radius">Eckenradius</label>
-                      <output class="control__value" id="radius-value" for="theme-radius">10 px</output>
-                    </div>
-                    <input class="range" type="range" id="theme-radius" min="0" max="28" step="1" value="10" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-stroke">Rahmen-Deckkraft</label>
-                      <output class="control__value" id="stroke-value" for="theme-stroke">8 %</output>
-                    </div>
-                    <input class="range" type="range" id="theme-stroke" min="0" max="30" step="1" value="8" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-shadow">Schatten-Stärke</label>
-                      <output class="control__value" id="shadow-value" for="theme-shadow">35 %</output>
-                    </div>
-                    <input class="range" type="range" id="theme-shadow" min="0" max="80" step="1" value="35" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-saturation">Farbsättigung</label>
-                      <output class="control__value" id="saturation-value" for="theme-saturation">180 %</output>
-                    </div>
-                    <input class="range" type="range" id="theme-saturation" min="100" max="300" step="5" value="180" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-border-style">Rahmenstil</label>
-                      <select class="select select--inline" id="theme-border-style">
-                        <option value="default">Standard</option>
-                        <option value="thin">Dünn</option>
-                        <option value="glow">Glow</option>
-                        <option value="none">Kein Rand</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Hintergrund -->
-              <div class="studio__tab-panel" data-panel="background" role="tabpanel" aria-labelledby="theme-tab-background">
-                <div class="studio__panel-grid">
-                  <div class="control control--wide">
-                    <label class="control__label" for="theme-wallpaper">Hintergrundbild-URL</label>
-                    <input class="text-input" type="text" id="theme-wallpaper" placeholder="https://example.com/wallpaper.jpg" spellcheck="false" aria-label="Hintergrundbild-URL" />
-                    <p class="control__hint">Leer lassen, um stattdessen Animationen zu nutzen.</p>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-bg-animation">Hintergrund-Animation</label>
-                      <select class="select select--inline" id="theme-bg-animation">
-                        <option value="none">Keine</option>
-                        
-                        <option value="aurora">Aurora</option>
-                        
-                        <option value="mesh">Mesh</option>
-                        
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-animation-speed">Anim.-Geschwindigkeit</label>
-                      <output class="control__value" id="animation-speed-value" for="theme-animation-speed">100 %</output>
+                <div class="ds-grid-2" id="animation-controls">
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-animation-speed">Geschwindigkeit</label>
+                      <output id="animation-speed-value" for="theme-animation-speed">100 %</output>
                     </div>
                     <input class="range" type="range" id="theme-animation-speed" min="0" max="200" step="5" value="100" />
                   </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-animation-intensity">Anim.-Intensität</label>
-                      <output class="control__value" id="animation-intensity-value" for="theme-animation-intensity">50 %</output>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-animation-intensity">Intensität</label>
+                      <output id="animation-intensity-value" for="theme-animation-intensity">55 %</output>
                     </div>
-                    <input class="range" type="range" id="theme-animation-intensity" min="0" max="100" step="1" value="50" />
+                    <input class="range" type="range" id="theme-animation-intensity" min="0" max="100" step="1" value="55" />
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <!-- Stil -->
-              <div class="studio__tab-panel" data-panel="style" role="tabpanel" aria-labelledby="theme-tab-style">
-                <div class="studio__panel-grid">
-                  <div class="control control--wide">
-                    <label class="control__label" for="theme-style">Browser-Stil</label>
-                    <select class="select" id="theme-style">
-                      <option value="default">Standard – Ausgewogene Mischung</option>
-                      <option value="clean">Aufgeräumt – Reduziertes Chrome</option>
-                      <option value="animated">Animation – Mehr Bewegung & Glow</option>
-                      <option value="gaming">Gaming – Starker Kontrast & Glow</option>
-                      <option value="minimal">Minimal – Ultra-reduziert</option>
-                    </select>
+              <section class="ds-panel" data-panel="colors" role="tabpanel" aria-label="Farben" hidden>
+                <div class="ds-grid-2">
+                  <div class="ds-color">
+                    <input class="ds-color__swatch" type="color" id="theme-accent" value="#7c6cff" aria-label="Akzent wählen" />
+                    <div class="ds-color__text">
+                      <label for="theme-accent-hex">Akzent</label>
+                      <input class="hex-input" type="text" id="theme-accent-hex" value="#7C6CFF" maxlength="7" spellcheck="false" aria-label="Akzent als Hex-Wert" />
+                    </div>
                   </div>
+                  <div class="ds-color">
+                    <input class="ds-color__swatch" type="color" id="theme-accent-alt" value="#22d3ee" aria-label="Zweiter Akzent wählen" />
+                    <div class="ds-color__text">
+                      <label for="theme-accent-alt-hex">Zweiter Akzent</label>
+                      <input class="hex-input" type="text" id="theme-accent-alt-hex" value="#22D3EE" maxlength="7" spellcheck="false" aria-label="Zweiter Akzent als Hex-Wert" />
+                    </div>
+                  </div>
+                  <div class="ds-color">
+                    <input class="ds-color__swatch" type="color" id="theme-bg" value="#0b0d17" aria-label="Hintergrund wählen" />
+                    <div class="ds-color__text">
+                      <label for="theme-bg-hex">Hintergrund</label>
+                      <input class="hex-input" type="text" id="theme-bg-hex" value="#0B0D17" maxlength="7" spellcheck="false" aria-label="Hintergrund als Hex-Wert" />
+                    </div>
+                  </div>
+                  <div class="ds-color">
+                    <input class="ds-color__swatch" type="color" id="theme-text" value="#e7e9f5" aria-label="Text wählen" />
+                    <div class="ds-color__text">
+                      <label for="theme-text-hex">Text</label>
+                      <input class="hex-input" type="text" id="theme-text-hex" value="#E7E9F5" maxlength="7" spellcheck="false" aria-label="Text als Hex-Wert" />
+                    </div>
+                  </div>
+                </div>
+                <p class="ds-hint">Die gedämpfte Textfarbe wird automatisch aus Text und Hintergrund berechnet.</p>
+              </section>
 
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-glow-intensity">Glow-Stärke</label>
-                      <output class="control__value" id="glow-intensity-value" for="theme-glow-intensity">50 %</output>
+              <section class="ds-panel" data-panel="surface" role="tabpanel" aria-label="Oberfläche" hidden>
+                  <div class="ds-field">
+                    <span class="ds-field__label" id="theme-style-label">Stil</span>
+                    <div class="ds-segmented" id="theme-style" role="group" aria-labelledby="theme-style-label">
+                      <button class="ds-seg" type="button" data-value="default" aria-pressed="false">Standard</button>
+                      <button class="ds-seg" type="button" data-value="clean" aria-pressed="false">Aufgeräumt</button>
+                      <button class="ds-seg" type="button" data-value="animated" aria-pressed="false">Lebendig</button>
+                      <button class="ds-seg" type="button" data-value="gaming" aria-pressed="false">Gaming</button>
+                      <button class="ds-seg" type="button" data-value="minimal" aria-pressed="false">Minimal</button>
+                    </div>
+                  </div>
+                <div class="ds-grid-2">
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-glass">Glas-Deckkraft</label>
+                      <output id="glass-value" for="theme-glass">70 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-glass" min="20" max="95" step="1" value="70" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-blur">Weichzeichnen</label>
+                      <output id="blur-value" for="theme-blur">22 px</output>
+                    </div>
+                    <input class="range" type="range" id="theme-blur" min="0" max="60" step="1" value="22" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-radius">Eckenradius</label>
+                      <output id="radius-value" for="theme-radius">12 px</output>
+                    </div>
+                    <input class="range" type="range" id="theme-radius" min="0" max="28" step="1" value="12" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-glow-intensity">Glow</label>
+                      <output id="glow-intensity-value" for="theme-glow-intensity">50 %</output>
                     </div>
                     <input class="range" type="range" id="theme-glow-intensity" min="0" max="100" step="1" value="50" />
                   </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-transition-speed">Übergangsgeschwindigkeit</label>
-                      <output class="control__value" id="transition-speed-value" for="theme-transition-speed">100 %</output>
-                    </div>
-                    <input class="range" type="range" id="theme-transition-speed" min="0" max="200" step="5" value="100" />
-                  </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-font">Schriftart</label>
-                      <select class="select select--inline" id="theme-font">
-                        <option value="system">System-UI</option>
-                        <option value="mono">Monospace</option>
-                      </select>
+                </div>
+                  <div class="ds-field">
+                    <span class="ds-field__label" id="theme-font-label">Schrift</span>
+                    <div class="ds-segmented" id="theme-font" role="group" aria-labelledby="theme-font-label">
+                      <button class="ds-seg" type="button" data-value="system" aria-pressed="false">System</button>
+                      <button class="ds-seg" type="button" data-value="mono" aria-pressed="false">Monospace</button>
                     </div>
                   </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-font-size">Schriftgröße</label>
-                      <output class="control__value" id="font-size-value" for="theme-font-size">100 %</output>
+                <div class="ds-grid-2">
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-font-size">Schriftgröße</label>
+                      <output id="font-size-value" for="theme-font-size">100 %</output>
                     </div>
                     <input class="range" type="range" id="theme-font-size" min="80" max="125" step="1" value="100" />
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <!-- Effekte -->
-              <div class="studio__tab-panel" data-panel="effects" role="tabpanel" aria-labelledby="theme-tab-effects">
-                <div class="studio__panel-grid">
-                  <div class="control control--wide">
-                    <label class="control__label" for="theme-cursor-effect">Cursor-Effekt</label>
+              <section class="ds-panel" data-panel="cursor" role="tabpanel" aria-label="Cursor" hidden>
+                <div class="ds-grid-2">
+                  <div class="ds-field">
+                    <label class="ds-field__label" for="theme-cursor-effect">Effekt</label>
                     <select class="select" id="theme-cursor-effect">
                       <option value="none">Kein Effekt</option>
                       <option value="trail">Spur</option>
@@ -606,73 +519,91 @@
                       <option value="laser">Laser</option>
                       <option value="bubbles">Blasen</option>
                     </select>
-                    <p class="control__hint">Gilt für das Interface, die Startseite und alle Webseiten.</p>
                   </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-cursor-color">Effektfarbe</label>
-                      <div class="color-field">
-                        <input class="color-swatch" type="color" id="theme-cursor-color" value="#ff6b35" aria-label="Effektfarbe wählen" />
-                        <input class="hex-input" type="text" id="theme-cursor-color-hex" value="#FF6B35" maxlength="7" spellcheck="false" aria-label="Effektfarbe als Hex-Wert" />
-                      </div>
+                  <div class="ds-field">
+                    <label class="ds-field__label" for="theme-cursor-image">Zeiger</label>
+                    <select class="select" id="theme-cursor-image"></select>
+                  </div>
+                  <div class="ds-color">
+                    <input class="ds-color__swatch" type="color" id="theme-cursor-color" value="#7c6cff" aria-label="Effektfarbe wählen" />
+                    <div class="ds-color__text">
+                      <label for="theme-cursor-color-hex">Effektfarbe</label>
+                      <input class="hex-input" type="text" id="theme-cursor-color-hex" value="#7C6CFF" maxlength="7" spellcheck="false" aria-label="Effektfarbe als Hex-Wert" />
                     </div>
                   </div>
-
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-cursor-size">Effektgröße</label>
-                      <output class="control__value" id="cursor-size-value" for="theme-cursor-size">16 px</output>
+                  <div></div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-cursor-intensity">Effektstärke</label>
+                      <output id="cursor-intensity-value" for="theme-cursor-intensity">60 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-cursor-intensity" min="0" max="100" step="1" value="60" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-cursor-size">Effektgröße</label>
+                      <output id="cursor-size-value" for="theme-cursor-size">16 px</output>
                     </div>
                     <input class="range" type="range" id="theme-cursor-size" min="2" max="40" step="1" value="16" />
                   </div>
+                </div>
+                <p class="ds-hint">Effekt und Zeiger gelten für das Interface, die Startseite und alle Webseiten.</p>
+              </section>
 
-                  <div class="control">
-                    <div class="control__row">
-                      <label class="control__label" for="theme-cursor-intensity">Effektintensität</label>
-                      <output class="control__value" id="cursor-intensity-value" for="theme-cursor-intensity">60 %</output>
+              <section class="ds-panel" data-panel="advanced" role="tabpanel" aria-label="Erweitert" hidden>
+                <h4 class="ds-subhead">Feinschliff</h4>
+                <div class="ds-grid-2">
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-stroke">Rahmen-Deckkraft</label>
+                      <output id="stroke-value" for="theme-stroke">9 %</output>
                     </div>
-                    <input class="range" type="range" id="theme-cursor-intensity" min="0" max="100" step="1" value="60" />
-                   </div>
-
-                   <div class="control control--wide">
-                     <label class="control__label" for="theme-cursor-image">Cursor-Stil</label>
-                     <select class="select" id="theme-cursor-image">
-                       <option value="">Standard</option>
-                       <option value="dot">Punkt</option>
-                       <option value="ring">Ring</option>
-                       <option value="cross">Fadenkreuz</option>
-                       <option value="arrow-glow">Pfeil (Glow)</option>
-                       <option value="target">Ziel</option>
-                     </select>
-                     <p class="control__hint">Gilt für das Interface und alle Webseiten.</p>
-                   </div>
+                    <input class="range" type="range" id="theme-stroke" min="0" max="30" step="1" value="9" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-shadow">Schatten</label>
+                      <output id="shadow-value" for="theme-shadow">34 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-shadow" min="0" max="80" step="1" value="34" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-saturation">Glas-Sättigung</label>
+                      <output id="saturation-value" for="theme-saturation">160 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-saturation" min="100" max="300" step="5" value="160" />
+                  </div>
+                  <div class="ds-slider">
+                    <div class="ds-slider__row">
+                      <label for="theme-transition-speed">Übergänge</label>
+                      <output id="transition-speed-value" for="theme-transition-speed">100 %</output>
+                    </div>
+                    <input class="range" type="range" id="theme-transition-speed" min="0" max="200" step="5" value="100" />
                   </div>
                 </div>
-              </div>
-
-              <!-- Erweitert -->
-              <div class="studio__tab-panel" data-panel="advanced" role="tabpanel" aria-labelledby="theme-tab-advanced">
-                <div class="studio__panel-grid">
-                  <div class="control control--wide">
-                    <label class="control__label" for="theme-css-chrome">Eigenes CSS für das Browser-Interface</label>
-                    <textarea class="code-input" id="theme-css-chrome" spellcheck="false" placeholder="/* CSS für die Chrome-UI */\n.chrome { border-bottom-width: 2px; }"></textarea>
+                  <div class="ds-field">
+                    <span class="ds-field__label" id="theme-border-style-label">Rahmenstil</span>
+                    <div class="ds-segmented" id="theme-border-style" role="group" aria-labelledby="theme-border-style-label">
+                      <button class="ds-seg" type="button" data-value="default" aria-pressed="false">Standard</button>
+                      <button class="ds-seg" type="button" data-value="thin" aria-pressed="false">Dünn</button>
+                      <button class="ds-seg" type="button" data-value="glow" aria-pressed="false">Glow</button>
+                      <button class="ds-seg" type="button" data-value="none" aria-pressed="false">Ohne</button>
+                    </div>
                   </div>
-
-                  <div class="control control--wide">
-                    <label class="control__label" for="theme-css-newtab">Eigenes CSS für die Startseite</label>
-                    <textarea class="code-input" id="theme-css-newtab" spellcheck="false" placeholder="/* CSS für jtech://newtab */\n.logo { letter-spacing: 0.4em; }"></textarea>
-                  </div>
+                <h4 class="ds-subhead">Eigenes CSS</h4>
+                <div class="ds-field">
+                  <label class="ds-field__label" for="theme-css-chrome">Browser-Interface</label>
+                  <textarea class="code-input" id="theme-css-chrome" spellcheck="false" placeholder="/* CSS für das Browser-Interface */"></textarea>
                 </div>
-              </div>
+                <div class="ds-field">
+                  <label class="ds-field__label" for="theme-css-newtab">Startseite</label>
+                  <textarea class="code-input" id="theme-css-newtab" spellcheck="false" placeholder="/* CSS für jtech://newtab */"></textarea>
+                </div>
+              </section>
             </div>
           </div>
         </div>
-
-        <footer class="studio__foot">
-          <p class="studio__hint">Änderungen werden sofort angewendet und gespeichert.</p>
-          <button class="btn-ghost" id="theme-reset" type="button">Auf Standard zurücksetzen</button>
-        </footer>
       </div>
     </section>
 
@@ -949,6 +880,7 @@
     </section>
 
     <script src="../shared/cursor-fx.js"></script>
+    <script src="../shared/backgrounds.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

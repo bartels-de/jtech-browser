@@ -57,7 +57,7 @@ test('normalizeTheme ersetzt ungültige Werte durch den Fallback', () => {
     blur: 20,
     radius: 12,
     style: 'clean',
-    bgAnimation: 'particles',
+    bgAnimation: 'hexgrid',
     animationSpeed: 120,
     animationIntensity: 60,
     glowIntensity: 70,

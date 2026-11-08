@@ -29,8 +29,8 @@ a fully customizable interface. The browser UI is in German.
 - Chrome extensions: from the Chrome Web Store (URL or ID) or as `.crx`/`.zip`/folder
 
 **Design Studio**
-- Theme editor with live preview, 12 presets, saved custom themes, import/export, randomize
-- Background animations, glass effect, glow, border style, fonts, cursor effects, custom CSS
+- Theme editor with live preview, 11 presets (dark, calm and light), saved custom themes, import/export, randomize
+- 8 animated canvas backgrounds with live preview tiles, glass effect, glow, fonts, cursor effects, custom CSS
 
 Frameless glass UI with a custom title bar and window controls. New tab page: `jtech://newtab`.
 
@@ -49,17 +49,29 @@ npm run build      # Windows installer (NSIS, x64) into dist/
 The slider button in the toolbar opens the Design Studio. While it is open, the
 active web page is hidden. **Esc** or a click outside closes it.
 
+The left column shows a live preview, the presets and your saved themes. The
+right side has five tabs:
+
 | Tab | Contents |
 | --- | --- |
-| **Colors** | Accent colors, background, text colors |
-| **Surface** | Glass opacity, blur, radius, stroke, shadow, saturation, border style |
-| **Background** | Wallpaper URL or animation (orbs, particles, waves, mesh, noise, aurora, grid, stars, matrix, pulse, fog) with speed and intensity |
-| **Style** | Browser style (default, clean, animated, gaming, minimal), glow, transition speed, font family and size |
-| **Effects** | Cursor effects (trail, sparks, comet, ripple, laser, bubbles), color, size, intensity, custom cursor image |
-| **Advanced** | Custom CSS for the browser UI and the new tab page |
+| **Background** | Gallery of animated backgrounds with live previews, or a custom image URL; speed and intensity |
+| **Colors** | Accent, second accent, background and text (the dimmed text color is derived automatically) |
+| **Surface** | Style (default, clean, lively, gaming, minimal), glass opacity, blur, radius, glow, font and size |
+| **Cursor** | Cursor effect, pointer style, effect color, strength and size |
+| **Advanced** | Fine-tuning (stroke, shadow, glass saturation, transitions, border style) and custom CSS |
 
-Changes apply immediately and are saved automatically after 250 ms. "Reset to
-default" restores the Obsidian theme.
+**Presets:** Nova (default), Synthwave, Toxic, Inferno, Hyperdrive, Abyss,
+Sakura, Forest, Graphite, Paper (light) and Daylight (light). Switching presets
+keeps your custom CSS.
+
+**Backgrounds:** Calm (no motion), Network, Synthwave, Flow, Hyperdrive,
+Hex grid, Nebula, Ribbons and Embers. They are drawn on a canvas by
+`src/shared/backgrounds.js`, which is shared by the browser UI, the new tab page
+and the studio previews. Animations pause in gaming mode, in hidden tabs and
+when the system asks for reduced motion.
+
+Changes apply immediately and are saved automatically after 250 ms. "Reset"
+restores the Nova theme.
 
 ## Default hotkeys
 
@@ -130,12 +142,13 @@ src/
 ├─ preload/
 │  └─ preload.js    Minimal contextBridge API (window.jtech)
 ├─ shared/
-│  └─ cursor-fx.js  Cursor effects (UI, new tab page and web pages)
+│  ├─ cursor-fx.js    Cursor effects (UI, new tab page and web pages)
+│  └─ backgrounds.js  Animated canvas backgrounds (UI, new tab page, studio previews)
 └─ renderer/
    ├─ index.html    Browser UI + overlays (studio, settings, media hub, HUD, palette)
    ├─ newtab.html   New tab page (jtech://newtab)
    ├─ changelog.html Shown once after an update
-   ├─ styles/       theme.css (design tokens), app.css, obsidian.css, polish.css
+   ├─ styles/       theme.css (design tokens), app.css, obsidian.css, studio.css (Design Studio)
    └─ js/app.js     Browser UI logic
 tests/              Hotkeys, settings, theme validation (node:test)
 ```

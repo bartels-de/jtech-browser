@@ -68,25 +68,6 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
-.orb { display: none; }
-.grid { display: none; }
-
-body.has-bg-animation.bg-anim-orbs .backdrop .orb,
-body.has-bg-animation.bg-anim-particles .backdrop::before,
-body.has-bg-animation.bg-anim-waves .backdrop::before,
-body.has-bg-animation.bg-anim-mesh .backdrop::before,
-body.has-bg-animation.bg-anim-noise .backdrop::before {
-  display: block;
-}
-
-body.has-bg-animation .grid {
-  display: block;
-}
-
-body.has-wallpaper .grid {
-  display: none;
-}
-
 .chrome {
   position: relative;
   z-index: 10;
@@ -921,19 +902,9 @@ body.gaming-mode .chrome {
   -webkit-backdrop-filter: blur(8px) saturate(120%);
 }
 
-body.gaming-mode .orb,
-body.gaming-mode .grid {
-  display: none;
-}
-
 body.gaming-mode * {
   transition-duration: 0.05s !important;
 }
-
-/* ------------------------------------------------------------- Orbs off */
-
-.orb { display: none; }
-.grid { display: none; }
 
 /* =====================================================================
    JTech Browser — UI/UX Polish & Theme-Editor Extensions

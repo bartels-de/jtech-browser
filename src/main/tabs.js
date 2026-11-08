@@ -9,6 +9,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Menu, MenuItem, clipboard } = require('electron');
 
+// Hintergründe: Liste für die Validierung, Quelltext für die Startseite.
+const BACKGROUNDS = require('../shared/backgrounds');
+const BACKGROUNDS_SOURCE = (() => {
+  try {
+    return fs.readFileSync(path.join(__dirname, '..', 'shared', 'backgrounds.js'), 'utf8');
+  } catch {
+    return '';
+  }
+})();
+
 // Der Cursor-Effekt wird als Quelltext in Webseiten und die Startseite injiziert.
 const CURSOR_FX_SOURCE = (() => {
   try {
@@ -282,6 +292,7 @@ class TabManager {
       this.activeId = id;
       if (tab.view && !this.overlayOpen) tab.view.webContents.focus();
       if (tab.view) this.onTabActivated(tab.view.webContents);
+      this.syncBackgroundPause();
       this.emit();
       return;
     }
@@ -302,6 +313,7 @@ class TabManager {
     }
     this.activeId = id;
     if (tab.view) this.onTabActivated(tab.view.webContents);
+    this.syncBackgroundPause();
 
     if (!tab.loading) this.syncNavigationState(tab);
     this.emit();
@@ -776,6 +788,7 @@ class TabManager {
 
   setOverlay(open) {
     this.overlayOpen = Boolean(open);
+    this.syncBackgroundPause();
     const ids = this.splitMode
       ? [this.splitLeftId, this.splitRightId]
       : [this.activeId];
@@ -808,6 +821,22 @@ class TabManager {
     const theme = this.getTheme?.();
     if (!theme || !tab || !tab.view || tab.view.webContents.isDestroyed()) return;
     tab.view.webContents.executeJavaScript(buildThemeScript(theme), true).catch(() => {});
+    this.syncBackgroundPause();
+  }
+
+  /** Animierte Startseiten-Hintergründe nur im sichtbaren Tab laufen lassen. */
+  syncBackgroundPause() {
+    for (const tab of this.tabs.values()) {
+      const contents = tab.view?.webContents;
+      if (!contents || contents.isDestroyed() || !contents.getURL().startsWith('jtech://newtab')) continue;
+      const shown = tab.id === this.activeId ||
+        (this.splitMode && (tab.id === this.splitLeftId || tab.id === this.splitRightId));
+      const paused = this.overlayOpen || !shown;
+      contents.executeJavaScript(
+        `(() => { const c = document.querySelector('.bg')?.__jtechBackground; if (c) c.setPaused(${paused}); })();`,
+        true
+      ).catch(() => {});
+    }
   }
 
   applyCursorTo(tab) {
@@ -852,6 +881,7 @@ class TabManager {
       contents.executeJavaScript(buildThemeScript(theme), true).catch(() => {});
       this.applyCustomCssTo(tab);
     }
+    this.syncBackgroundPause();
   }
 
   applySearchTo(tab) {
@@ -1369,12 +1399,27 @@ function buildThemeScript(theme) {
   const animSpeed = Math.max(0.1, (Number(theme.animationSpeed) || 100) / 100);
   const animIntensity = Math.round(Number(theme.animationIntensity) || 50);
   const transitionSpeed = Math.max(0.1, (Number(theme.transitionSpeed) || 100) / 100);
-  const bgAnimation = ['none', 'orbs', 'particles', 'waves', 'mesh', 'noise', 'aurora', 'grid', 'stars', 'matrix', 'pulse', 'fog'].includes(theme.bgAnimation) ? theme.bgAnimation : 'aurora';
+  const bgAnimation = BACKGROUNDS.IDS.includes(theme.bgAnimation) ? theme.bgAnimation : BACKGROUNDS.DEFAULT_ID;
   const borderStyle = ['default', 'thin', 'glow', 'none'].includes(theme.borderStyle) ? theme.borderStyle : 'default';
   const style = ['default', 'clean', 'animated', 'gaming', 'minimal'].includes(theme.style) ? theme.style : 'default';
   const wallpaper = typeof theme.wallpaper === 'string' ? theme.wallpaper : '';
+  const backgroundOptions = {
+    id: bgAnimation,
+    accent: theme.accent,
+    accentAlt: theme.accentAlt,
+    bg: theme.bg,
+    text,
+    intensity: animIntensity / 100,
+    glow: glowIntensity / 100,
+    speed: Math.min(2, animSpeed),
+    hidden: Boolean(wallpaper),
+    fps: 30
+  };
 
-  return `(() => {
+  // Hintergrund-Modul einmalig in die Startseite laden.
+  const backgroundsLoader = BACKGROUNDS_SOURCE ? `if (!window.JTechBackgrounds) {\n${BACKGROUNDS_SOURCE}\n}\n` : '';
+
+  return `${backgroundsLoader}(() => {
     const style = document.documentElement.style;
     style.setProperty('--accent', ${JSON.stringify(theme.accent)});
     style.setProperty('--accent-alt', ${JSON.stringify(theme.accentAlt)});
@@ -1405,36 +1450,25 @@ function buildThemeScript(theme) {
       (document.head || document.documentElement).appendChild(cursorStyle);
     }
     cursorStyle.textContent = cursorValue ? ('* { cursor: ' + cursorValue + ' !important; }') : '';
-    // Hintergrund-Animationen für die Startseite
+    // Hintergrund (Canvas, src/shared/backgrounds.js) für die Startseite
     const body = document.body;
     const bg = document.querySelector('.bg');
-    const grid = document.querySelector('.grid');
+    const wallpaper = ${JSON.stringify(wallpaper)};
     if (bg) {
-      bg.className = 'bg';
-      if (${JSON.stringify(wallpaper)}) {
-        bg.style.backgroundImage = 'url(' + ${JSON.stringify(wallpaper)} + ')';
-        bg.style.backgroundSize = 'cover';
-        bg.style.backgroundPosition = 'center';
-        body.classList.remove('has-bg-animation');
-        body.classList.add('has-wallpaper');
-      } else {
-        bg.style.backgroundImage = '';
-        bg.style.backgroundSize = '';
-        bg.style.backgroundPosition = '';
-        bg.classList.add('bg-anim-' + ${JSON.stringify(bgAnimation)});
-        body.classList.add('has-bg-animation');
-        body.classList.remove('has-wallpaper');
+      bg.style.backgroundImage = wallpaper ? 'url(' + JSON.stringify(wallpaper) + ')' : '';
+      bg.style.backgroundSize = wallpaper ? 'cover' : '';
+      bg.style.backgroundPosition = wallpaper ? 'center' : '';
+      body.classList.toggle('has-wallpaper', Boolean(wallpaper));
+      if (window.JTechBackgrounds) {
+        window.JTechBackgrounds.attach(bg, ${JSON.stringify(backgroundOptions)});
       }
-    }
-    if (grid) {
-      grid.style.opacity = ${JSON.stringify(wallpaper)} ? '0' : '1';
     }
     body.classList.remove('style-default', 'style-clean', 'style-animated', 'style-gaming', 'style-minimal');
     body.classList.add('style-' + ${JSON.stringify(style)});
     body.classList.remove('border-default', 'border-thin', 'border-glow', 'border-none');
     body.classList.add('border-' + ${JSON.stringify(borderStyle)});
 
-    // Injiziere Newtab-Animations-CSS
+    // Stil-Regeln der Startseite
     let animStyle = document.getElementById('jtech-bg-anim-css');
     if (!animStyle) {
       animStyle = document.createElement('style');
@@ -1442,171 +1476,7 @@ function buildThemeScript(theme) {
       (document.head || document.documentElement).appendChild(animStyle);
     }
     animStyle.textContent = \`
-      .bg { transition: background-image 0.4s ease; }
-      .bg-anim-orbs::before,
-      .bg-anim-orbs::after {
-        content: '';
-        position: absolute;
-        border-radius: 50%;
-        filter: blur(90px);
-        pointer-events: none;
-      }
-      .bg-anim-orbs::before {
-        width: 520px; height: 520px; top: -180px; left: -100px;
-        background: radial-gradient(circle, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%);
-        animation: nt-float-a calc(26s / var(--anim-speed)) ease-in-out infinite;
-      }
-      .bg-anim-orbs::after {
-        width: 620px; height: 620px; top: -220px; right: -140px;
-        background: radial-gradient(circle, color-mix(in srgb, var(--accent-alt) 42%, transparent), transparent 70%);
-        animation: nt-float-b calc(32s / var(--anim-speed)) ease-in-out infinite;
-      }
-      .bg-anim-particles::before,
-      .bg-anim-particles::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background-repeat: repeat;
-      }
-      .bg-anim-particles::before {
-        background-image:
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 55%, transparent) 0.9px, transparent 1px),
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-alt) 45%, transparent) 0.7px, transparent 0.8px),
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--text) 20%, transparent) 0.55px, transparent 0.6px),
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 35%, transparent) 0.45px, transparent 0.5px);
-        background-size: 18px 18px, 28px 28px, 42px 42px, 64px 64px;
-        background-position: 0 0, 10px 18px, 24px 6px, 46px 34px;
-        animation: nt-particle-drift-fine calc(70s / var(--anim-speed)) linear infinite;
-        opacity: calc(0.32 + var(--anim-intensity) * 0.004);
-      }
-      .bg-anim-particles::after {
-        background-image:
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 50%, transparent) 1.8px, transparent 2px),
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent-alt) 38%, transparent) 1.3px, transparent 1.5px),
-          radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--accent) 28%, transparent) 2.6px, transparent 3px);
-        background-size: 54px 54px, 86px 86px, 144px 144px;
-        background-position: 0 0, 28px 52px, 64px 20px;
-        filter: blur(0.8px);
-        animation: nt-particle-drift-glow calc(110s / var(--anim-speed)) linear infinite;
-        opacity: calc(0.18 + var(--anim-intensity) * 0.0025);
-      }
-      .bg-anim-waves::before {
-        content: '';
-        position: absolute; inset: 0;
-        background: radial-gradient(120% 80% at 20% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 55%),
-          radial-gradient(120% 80% at 80% 0%, color-mix(in srgb, var(--accent-alt) 16%, transparent), transparent 55%);
-        animation: nt-wave-shift calc(20s / var(--anim-speed)) ease-in-out infinite;
-        opacity: calc(0.25 + var(--anim-intensity) * 0.004);
-        pointer-events: none;
-      }
-      .bg-anim-mesh::before {
-        content: '';
-        position: absolute; inset: 0;
-        background:
-          radial-gradient(at 20% 20%, color-mix(in srgb, var(--accent) 28%, transparent) 0%, transparent 50%),
-          radial-gradient(at 80% 20%, color-mix(in srgb, var(--accent-alt) 24%, transparent) 0%, transparent 50%),
-          radial-gradient(at 40% 80%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 50%),
-          radial-gradient(at 80% 80%, color-mix(in srgb, var(--accent-alt) 16%, transparent) 0%, transparent 50%);
-        background-size: 200% 200%;
-        animation: nt-mesh-move calc(25s / var(--anim-speed)) ease-in-out infinite alternate;
-        opacity: calc(0.35 + var(--anim-intensity) * 0.004);
-        pointer-events: none;
-      }
-      .bg-anim-noise::before {
-        content: '';
-        position: absolute; inset: 0;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-        animation: nt-noise-shift calc(8s / var(--anim-speed)) steps(8) infinite;
-        opacity: calc(0.08 + var(--anim-intensity) * 0.002);
-        pointer-events: none;
-      }
-      .bg-anim-aurora::before {
-        content: '';
-        position: absolute; inset: -30%;
-        background:
-          radial-gradient(60% 50% at 30% 40%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 60%),
-          radial-gradient(50% 60% at 70% 60%, color-mix(in srgb, var(--accent-alt) 30%, transparent), transparent 60%);
-        filter: blur(60px);
-        animation: nt-aurora-shift calc(24s / var(--anim-speed)) ease-in-out infinite alternate;
-        opacity: calc(0.35 + var(--anim-intensity) * 0.004);
-        pointer-events: none;
-      }
-      .bg-anim-grid::before {
-        content: '';
-        position: absolute; inset: 0;
-        background-image: radial-gradient(color-mix(in srgb, var(--accent) 40%, transparent) 1px, transparent 1px);
-        background-size: 24px 24px;
-        animation: nt-grid-pulse calc(6s / var(--anim-speed)) ease-in-out infinite;
-        opacity: calc(0.25 + var(--anim-intensity) * 0.003);
-        pointer-events: none;
-      }
-      .bg-anim-stars::before,
-      .bg-anim-stars::after {
-        content: '';
-        position: absolute; inset: 0;
-        background-image:
-          radial-gradient(1.5px 1.5px at 10% 20%, color-mix(in srgb, var(--text) 70%, transparent), transparent),
-          radial-gradient(1.2px 1.2px at 80% 10%, color-mix(in srgb, var(--accent) 60%, transparent), transparent),
-          radial-gradient(1px 1px at 30% 60%, color-mix(in srgb, var(--accent-alt) 55%, transparent), transparent);
-        background-size: 260px 260px;
-        opacity: calc(0.2 + var(--anim-intensity) * 0.004);
-        animation: nt-stars-twinkle calc(8s / var(--anim-speed)) ease-in-out infinite alternate;
-        pointer-events: none;
-      }
-      .bg-anim-stars::after { background-position: 130px 130px; animation-delay: calc(-4s / var(--anim-speed)); opacity: calc(0.1 + var(--anim-intensity) * 0.002); }
-      .bg-anim-matrix::before {
-        content: '';
-        position: absolute; inset: 0;
-        background-image:
-          linear-gradient(180deg, var(--bg) 0%, transparent 18%, transparent 82%, var(--bg) 100%),
-          repeating-linear-gradient(180deg, transparent 0px, transparent 18px, color-mix(in srgb, var(--accent) 14%, transparent) 18px, color-mix(in srgb, var(--accent) 14%, transparent) 20px);
-        background-size: 100% 100%, 32px 100%;
-        opacity: calc(0.12 + var(--anim-intensity) * 0.002);
-        animation: nt-matrix-fall calc(24s / var(--anim-speed)) linear infinite;
-        pointer-events: none;
-      }
-      .bg-anim-pulse::before {
-        content: '';
-        position: absolute; inset: -50%;
-        background: repeating-radial-gradient(circle at 50% 50%, transparent 0%, transparent 6%, color-mix(in srgb, var(--accent) 10%, transparent) 7%, transparent 8%);
-        opacity: calc(0.2 + var(--anim-intensity) * 0.003);
-        animation: nt-pulse-expand calc(14s / var(--anim-speed)) ease-in-out infinite;
-        pointer-events: none;
-      }
-      .bg-anim-fog::before,
-      .bg-anim-fog::after {
-        content: '';
-        position: absolute; inset: -20%;
-        background-image:
-          radial-gradient(80% 50% at 20% 40%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%),
-          radial-gradient(70% 60% at 80% 60%, color-mix(in srgb, var(--accent-alt) 18%, transparent), transparent 60%);
-        filter: blur(60px);
-        opacity: calc(0.2 + var(--anim-intensity) * 0.003);
-        animation: nt-fog-drift calc(40s / var(--anim-speed)) ease-in-out infinite alternate;
-        pointer-events: none;
-      }
-      .bg-anim-fog::after {
-        background-image:
-          radial-gradient(70% 50% at 60% 30%, color-mix(in srgb, var(--accent-alt) 16%, transparent), transparent 60%),
-          radial-gradient(80% 50% at 30% 70%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 60%);
-        animation-direction: alternate-reverse;
-        animation-duration: calc(50s / var(--anim-speed));
-      }
       .has-wallpaper .bg { background-size: cover; background-position: center; }
-      @keyframes nt-aurora-shift { 0% { transform: translate3d(0,0,0) rotate(0deg); } 100% { transform: translate3d(4%,-3%,0) rotate(8deg); } }
-      @keyframes nt-grid-pulse { 0%, 100% { opacity: 0.25; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.02); } }
-      @keyframes nt-stars-twinkle { 0% { opacity: calc(0.15 + var(--anim-intensity) * 0.003); } 100% { opacity: calc(0.35 + var(--anim-intensity) * 0.005); } }
-      @keyframes nt-matrix-fall { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 0, 0 720px; } }
-      @keyframes nt-pulse-expand { 0%, 100% { transform: scale(1); opacity: calc(0.2 + var(--anim-intensity) * 0.003); } 50% { transform: scale(1.15); opacity: calc(0.35 + var(--anim-intensity) * 0.005); } }
-      @keyframes nt-fog-drift { 0% { transform: translate3d(-4%,-2%,0) scale(1); } 100% { transform: translate3d(4%,2%,0) scale(1.08); } }
-      @keyframes nt-float-a { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(60px,40px,0) scale(1.08); } }
-      @keyframes nt-float-b { 0%, 100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-70px,60px,0) scale(1.12); } }
-      @keyframes nt-particle-drift-fine { 0% { background-position: 0 0, 10px 18px, 24px 6px, 46px 34px; } 100% { background-position: 0 -360px, 10px -240px, 24px -300px, 46px -220px; } }
-      @keyframes nt-particle-drift-glow { 0% { background-position: 0 0, 28px 52px, 64px 20px; } 100% { background-position: 0 -260px, 28px -380px, 64px -220px; } }
-      @keyframes nt-wave-shift { 0%, 100% { transform: translateX(-3%) scale(1.02); } 50% { transform: translateX(3%) scale(1.05); } }
-      @keyframes nt-mesh-move { 0% { background-position: 0% 0%, 100% 0%, 0% 100%, 100% 100%; } 100% { background-position: 100% 100%, 0% 100%, 100% 0%, 0% 0%; } }
-      @keyframes nt-noise-shift { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(-2%,1%); } 50% { transform: translate(1%,-2%); } 75% { transform: translate(-1%,-1%); } }
       body.style-gaming .search { border-color: color-mix(in srgb, var(--accent) calc(var(--glow-intensity) * 1%), transparent); box-shadow: 0 0 40px color-mix(in srgb, var(--accent) calc(var(--glow-intensity) * 0.4%), transparent), 0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08); }
       body.style-animated .search { transition: all var(--transition-normal); }
       body.style-animated .search:focus-within { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 0 54px color-mix(in srgb, var(--accent) calc(var(--glow-intensity) * 0.5%), transparent), inset 0 1px 0 rgba(255,255,255,0.06); }
