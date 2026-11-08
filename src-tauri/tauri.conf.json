@@ -20,6 +20,8 @@
     "publisher": "JTech",
     "category": "Productivity",
     "shortDescription": "JTech Browser",
+    "longDescription": "JTech Browser",
+    "copyright": "Copyright (c) bartels",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

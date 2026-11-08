@@ -28,7 +28,29 @@ fn chrome_navigation_allowed(url: &Url) -> bool {
     }
 }
 
+/// Gives the process the same AppUserModelID as the installer's shortcuts
+/// (the bundle identifier). Windows then attributes the window and its
+/// WebView2 helper processes to "JTech Browser" (taskbar, Task Manager)
+/// instead of the WebView2 runtime.
+#[cfg(windows)]
+fn set_app_user_model_id() {
+    #[link(name = "shell32")]
+    extern "system" {
+        fn SetCurrentProcessExplicitAppUserModelID(app_id: *const u16) -> i32;
+    }
+    let id: Vec<u16> = "com.jtech.browser".encode_utf16().chain(std::iter::once(0)).collect();
+    // SAFETY: `id` is a NUL-terminated UTF-16 string that outlives the call.
+    let result = unsafe { SetCurrentProcessExplicitAppUserModelID(id.as_ptr()) };
+    if result < 0 {
+        eprintln!("[main] could not set AppUserModelID: {result:#x}");
+    }
+}
+
 fn main() {
+    // Must run before the first window is created.
+    #[cfg(windows)]
+    set_app_user_model_id();
+
     tauri::Builder::default()
         .manage(BrowserState::default())
         .register_uri_scheme_protocol(newtab::SCHEME, newtab::handle)
