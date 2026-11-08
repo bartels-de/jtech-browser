@@ -6,7 +6,7 @@
 
 use tauri::{AppHandle, Webview};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2, ICoreWebView2Controller, ICoreWebView2Settings9, ICoreWebView2_15, ICoreWebView2_8, COREWEBVIEW2_KEY_EVENT_KIND,
+    ICoreWebView2, ICoreWebView2Controller, ICoreWebView2_15, ICoreWebView2_8, COREWEBVIEW2_KEY_EVENT_KIND,
     COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN, COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN,
 };
 use webview2_com::{
@@ -81,37 +81,11 @@ fn register_accelerators(controller: &ICoreWebView2Controller, app: &AppHandle, 
     Ok(())
 }
 
-/// Turns off WebView2's own handling of `app-region: drag` (wry enables
-/// it). In a child webview it neither moves the top-level window nor lets
-/// the clicks through, so the title bar could not be dragged at all. With
-/// it off, the bridge sees the mousedown and starts a native window drag.
-/// Returns true when the page has to be reloaded for the change to apply.
-fn disable_native_drag_regions(controller: &ICoreWebView2Controller) -> windows_core::Result<bool> {
-    let core = unsafe { controller.CoreWebView2()? };
-    let settings = unsafe { core.Settings()? };
-    let Ok(settings9) = settings.cast::<ICoreWebView2Settings9>() else {
-        return Ok(false);
-    };
-    let mut enabled = BOOL::default();
-    unsafe { settings9.IsNonClientRegionSupportEnabled(&mut enabled)? };
-    if !enabled.as_bool() {
-        return Ok(false);
-    }
-    unsafe {
-        settings9.SetIsNonClientRegionSupportEnabled(false)?;
-        core.Reload()?;
-    }
-    Ok(true)
-}
-
-/// Hotkeys and window dragging for the chrome UI webview.
+/// Hotkeys for the chrome UI webview.
 pub fn attach_chrome(app: &AppHandle, webview: &Webview) {
     let app = app.clone();
     let result = webview.with_webview(move |platform| {
         let controller = platform.controller();
-        if let Err(error) = disable_native_drag_regions(&controller) {
-            eprintln!("[webview2] could not change drag region support: {error}");
-        }
         if let Err(error) = register_accelerators(&controller, &app, Origin::Chrome) {
             eprintln!("[webview2] could not register chrome hotkeys: {error}");
         }

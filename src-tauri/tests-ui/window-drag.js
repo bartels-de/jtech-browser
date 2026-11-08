@@ -18,6 +18,8 @@ const INDEX = path.resolve(__dirname, '..', '..', 'src', 'renderer', 'index.html
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const pageErrors = [];
+  page.on('pageerror', (error) => pageErrors.push(String(error)));
   await page.addInitScript(fakeTauri);
   await page.goto('file://' + INDEX);
   await page.waitForFunction(() => window.jtech && window.__fakeTauri.calls.includes('chrome_ready'));
@@ -26,6 +28,12 @@ const INDEX = path.resolve(__dirname, '..', '..', 'src', 'renderer', 'index.html
   const calls = () => page.evaluate(() => window.__fakeTauri.calls.filter((c) => c.startsWith('window_')));
   const reset = () => page.evaluate(() => { window.__fakeTauri.calls.length = 0; });
   const failures = [];
+
+  // WebView2 must see no native drag regions (they swallow the clicks).
+  const regions = await page.evaluate(() =>
+    [...document.querySelectorAll('*')].filter((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region') === 'drag').length
+  );
+  if (regions) failures.push(`${regions} elements still have -webkit-app-region: drag`);
 
   // The gap between the navigation buttons and the omnibox (toolbar background).
   const box = await page.evaluate(() => {
@@ -69,6 +77,7 @@ const INDEX = path.resolve(__dirname, '..', '..', 'src', 'renderer', 'index.html
   if ((await calls()).length) failures.push('click on the omnibox padding started a drag');
 
   await browser.close();
+  if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
   if (failures.length) {
     console.error('FAIL\n' + failures.join('\n'));
     process.exit(1);

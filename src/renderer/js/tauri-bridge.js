@@ -26,10 +26,9 @@
     'html.is-tauri #extensions-menu,',
     'html.is-tauri .settings__nav-btn[data-panel="extensions"],',
     'html.is-tauri .settings__panel[data-panel="extensions"] { display: none !important; }',
-    // The vertical layout hides the old title bar, so it has no drag area
-    // left. Let the empty parts of the toolbar move the window.
-    'html.is-tauri .toolbar { -webkit-app-region: drag; }',
-    'html.is-tauri .toolbar .omnibox, html.is-tauri .toolbar .omnibox * { -webkit-app-region: no-drag; }'
+    // WebView2 must not treat app-region areas as native title bar (see
+    // "Window drag" below); the bridge handles dragging itself.
+    'html.is-tauri, html.is-tauri * { -webkit-app-region: no-drag !important; app-region: no-drag !important; }'
   ].join('\n');
   document.head.appendChild(tauriStyle);
 
@@ -122,28 +121,26 @@
 
   /* ---------------------------------------------- Window drag (frameless) */
 
-  // Electron uses CSS `-webkit-app-region: drag`. In the Tauri build the
-  // chrome UI is a child webview, where WebView2 cannot move the window for
-  // it (Rust turns that off), so the bridge starts a native drag instead:
-  // that also gives Aero Snap. Double-click toggles maximize.
-  function appRegion(element) {
-    for (let node = element; node && node.nodeType === 1; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      const region = style.getPropertyValue('-webkit-app-region') || style.webkitAppRegion || '';
-      if (region === 'drag' || region === 'no-drag') return region;
-    }
-    return 'none';
-  }
+  // Electron moves the window for CSS `-webkit-app-region: drag`. In the
+  // Tauri build the chrome UI is a child webview where WebView2's own
+  // app-region handling neither moves the window nor passes the click on,
+  // so the injected style above turns every region into no-drag and the
+  // bridge starts a native drag (with Aero Snap) for these areas instead.
+  // Double-click toggles maximize.
+  const DRAG_AREAS = '.toolbar, .titlebar, .titlebar__drag';
+  const NO_DRAG = '.omnibox, .tabstrip, .window-controls';
+  const INTERACTIVE = 'button, a, input, textarea, select, label, [contenteditable], [role="button"], [tabindex]:not([tabindex="-1"])';
 
-  const INTERACTIVE = 'button, a, input, textarea, select, [contenteditable], [role="button"]';
+  function isDragArea(target) {
+    if (!(target instanceof Element)) return false;
+    if (target.closest(INTERACTIVE) || target.closest(NO_DRAG)) return false;
+    return Boolean(target.closest(DRAG_AREAS));
+  }
 
   // Capture phase: in Electron drag regions get no mouse events at all, so
   // app.js handlers never see these clicks either.
   window.addEventListener('mousedown', (event) => {
-    if (event.button !== 0) return;
-    const target = event.target;
-    if (!(target instanceof Element) || target.closest(INTERACTIVE)) return;
-    if (appRegion(target) !== 'drag') return;
+    if (event.button !== 0 || !isDragArea(event.target)) return;
     // Like Tauri's drag.js: no text selection, no other handlers.
     event.preventDefault();
     event.stopImmediatePropagation();
