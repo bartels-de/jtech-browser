@@ -126,6 +126,7 @@ fn main() {
 
             let handle = app.handle().clone();
             window.on_window_event(move |event| tabs::on_window_event(&handle, event));
+            tabs::start_auto_sleep(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())

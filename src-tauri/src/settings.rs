@@ -222,6 +222,10 @@ fn normalize_ui(input: &Value, base: &Value) -> Value {
         map.insert("tabLayout".into(), json!("vertical"));
         let width = map.get("sidebarWidth").and_then(Value::as_f64).unwrap_or(252.0);
         map.insert("sidebarWidth".into(), json!(width.clamp(180.0, 460.0)));
+        // Same options as AUTO_SLEEP_OPTIONS in config.js.
+        let sleep = map.get("autoSleepMinutes").and_then(Value::as_f64).unwrap_or(30.0);
+        let sleep = if [0.0, 15.0, 30.0, 60.0, 120.0].contains(&sleep) { sleep as u64 } else { 30 };
+        map.insert("autoSleepMinutes".into(), json!(sleep));
         if let Some(name) = map.get("userName").and_then(Value::as_str) {
             let trimmed: String = name.trim().chars().take(60).collect();
             map.insert("userName".into(), json!(trimmed));
@@ -393,6 +397,11 @@ impl SettingsStore {
     /// Full settings value (used internally, e.g. for the start page).
     pub fn snapshot(&self) -> Value {
         self.lock().clone()
+    }
+
+    /// Folder that holds settings.json (and session.json).
+    pub fn dir(&self) -> PathBuf {
+        self.path.parent().map(Path::to_path_buf).unwrap_or_default()
     }
 
     /// One top-level section (e.g. "hotkeys"), `Null` if missing.

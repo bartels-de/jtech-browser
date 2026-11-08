@@ -6,12 +6,13 @@
 
 use tauri::{AppHandle, Webview};
 use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2, ICoreWebView2Controller, ICoreWebView2_15, COREWEBVIEW2_KEY_EVENT_KIND,
+    ICoreWebView2, ICoreWebView2Controller, ICoreWebView2_15, ICoreWebView2_8, COREWEBVIEW2_KEY_EVENT_KIND,
     COREWEBVIEW2_KEY_EVENT_KIND_KEY_DOWN, COREWEBVIEW2_KEY_EVENT_KIND_SYSTEM_KEY_DOWN,
 };
 use webview2_com::{
     take_pwstr, AcceleratorKeyPressedEventHandler, FaviconChangedEventHandler,
-    HistoryChangedEventHandler, SourceChangedEventHandler,
+    HistoryChangedEventHandler, IsDocumentPlayingAudioChangedEventHandler,
+    SourceChangedEventHandler,
 };
 use windows_core::{Interface, BOOL, PWSTR};
 
@@ -177,6 +178,21 @@ fn register(core: &ICoreWebView2, app: &AppHandle, id: &str) -> windows_core::Re
             Ok(())
         }));
         unsafe { core15.add_FaviconChanged(&handler, &mut token)? };
+    }
+
+    // Audio state, so auto-sleep skips tabs that play sound (runtime 1.0.864+).
+    if let Ok(core8) = core.cast::<ICoreWebView2_8>() {
+        let app = app.clone();
+        let id = id.to_string();
+        let handler = IsDocumentPlayingAudioChangedEventHandler::create(Box::new(move |sender, _args| {
+            if let Some(sender) = sender.and_then(|s| s.cast::<ICoreWebView2_8>().ok()) {
+                let mut playing = BOOL::default();
+                unsafe { sender.IsDocumentPlayingAudio(&mut playing)? };
+                update_tab(&app, &id, |tab| tab.audible = playing.as_bool());
+            }
+            Ok(())
+        }));
+        unsafe { core8.add_IsDocumentPlayingAudioChanged(&handler, &mut token)? };
     }
 
     Ok(())

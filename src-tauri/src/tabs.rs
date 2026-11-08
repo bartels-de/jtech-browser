@@ -6,7 +6,9 @@
 //! Locking rule: the state mutex is never held while calling into a webview
 //! or window, because those calls can run webview callbacks that lock it too.
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -34,11 +36,46 @@ pub struct Tab {
     pub can_go_back: bool,
     pub can_go_forward: bool,
     pub zoom: f64,
+    pub pinned: bool,
+    pub group_id: Option<String>,
+    pub muted: bool,
+    pub volume: f64,
+    /// Playing audio (WebView2 `IsDocumentPlayingAudio`).
+    pub audible: bool,
+    /// No webview: a restored or slept tab that loads on activation.
+    pub sleeping: bool,
+    /// Milliseconds since the epoch when the tab was last left or shown.
+    pub last_active_at: u64,
+    /// Label of the tab's webview while it has one. Each webview gets a new
+    /// label so a closing webview never blocks waking the tab again.
+    pub webview_label: Option<String>,
 }
 
 impl Tab {
-    fn label(&self) -> String {
-        tab_label(&self.id)
+    /// A tab record without a webview.
+    pub fn record(id: String, url: String) -> Self {
+        Tab {
+            id,
+            url,
+            title: NEW_TAB_TITLE.to_string(),
+            favicon: String::new(),
+            loading: false,
+            can_go_back: false,
+            can_go_forward: false,
+            zoom: 1.0,
+            pinned: false,
+            group_id: None,
+            muted: false,
+            volume: 1.0,
+            audible: false,
+            sleeping: true,
+            last_active_at: now_millis(),
+            webview_label: None,
+        }
+    }
+
+    fn label(&self) -> Option<String> {
+        self.webview_label.clone()
     }
 
     fn is_new_tab(&self) -> bool {
@@ -46,8 +83,18 @@ impl Tab {
     }
 }
 
-pub fn tab_label(id: &str) -> String {
-    format!("{TAB_PREFIX}{id}")
+static WEBVIEW_COUNTER: AtomicU64 = AtomicU64::new(1);
+
+fn next_webview_label(id: &str) -> String {
+    let n = WEBVIEW_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{TAB_PREFIX}{id}-{n}")
+}
+
+pub fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or_default()
 }
 
 #[derive(Debug, Default)]
@@ -142,15 +189,15 @@ fn state_payload(browser: &Browser) -> StatePayload {
                     can_go_back: tab.can_go_back,
                     can_go_forward: tab.can_go_forward,
                     is_new_tab,
-                    pinned: false,
-                    group_id: None,
-                    muted: false,
-                    audible: false,
-                    volume: 1.0,
+                    pinned: tab.pinned,
+                    group_id: tab.group_id.clone(),
+                    muted: tab.muted,
+                    audible: tab.audible,
+                    volume: tab.volume,
                     volume_explicit: false,
                     media_active: false,
                     zoom: tab.zoom,
-                    sleeping: false,
+                    sleeping: tab.sleeping,
                 }
             })
             .collect(),
@@ -210,11 +257,14 @@ fn content_bounds(app: &AppHandle) -> (LogicalPosition<f64>, LogicalSize<f64>) {
 pub fn apply_layout(app: &AppHandle) {
     let (position, size) = content_bounds(app);
     let (labels, visible_label) = with_browser(app, |b| {
-        let labels: Vec<String> = b.tabs.iter().map(Tab::label).collect();
+        let labels: Vec<String> = b.tabs.iter().filter_map(Tab::label).collect();
         let visible = if b.overlay || b.webview_hidden {
             None
         } else {
-            b.active_id.as_deref().map(tab_label)
+            b.active_id
+                .as_deref()
+                .and_then(|id| b.tabs.iter().find(|t| t.id == id))
+                .and_then(Tab::label)
         };
         (labels, visible)
     });
@@ -248,14 +298,14 @@ fn favicon_guess(url: &Url) -> String {
     }
 }
 
-fn build_tab_webview(app: &AppHandle, id: &str, url: Url) -> WebviewBuilder<tauri::Wry> {
+fn build_tab_webview(app: &AppHandle, id: &str, label: &str, url: Url) -> WebviewBuilder<tauri::Wry> {
     let app_new_window = app.clone();
     let app_title = app.clone();
     let app_load = app.clone();
     let id_title = id.to_string();
     let id_load = id.to_string();
 
-    WebviewBuilder::new(tab_label(id), WebviewUrl::External(url))
+    WebviewBuilder::new(label, WebviewUrl::External(url))
         .on_navigation(navigation_allowed)
         .on_new_window(move |url, _features| {
             // Links with target=_blank and window.open become new tabs.
@@ -342,63 +392,326 @@ pub fn to_url(target: &str) -> Option<Url> {
     Url::parse(target).ok()
 }
 
-/// Creates a tab webview. Must not be called while the state lock is held.
-pub fn create_tab(app: &AppHandle, url: Url, activate: bool) -> Result<String, String> {
+/// Gives a tab record a webview that loads `url`. Must not be called while
+/// the state lock is held.
+fn spawn_webview(app: &AppHandle, id: &str, url: Url) -> Result<(), String> {
     let window = app
         .get_window(WINDOW_LABEL)
         .ok_or_else(|| "main window is missing".to_string())?;
-    let id = uuid::Uuid::new_v4().to_string();
-
-    with_browser(app, |b| {
-        b.tabs.push(Tab {
-            id: id.clone(),
-            url: url.to_string(),
-            title: NEW_TAB_TITLE.to_string(),
-            favicon: favicon_guess(&url),
-            loading: true,
-            can_go_back: false,
-            can_go_forward: false,
-            zoom: 1.0,
-        });
+    let label = next_webview_label(id);
+    let zoom = with_browser(app, |b| {
+        let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
+        tab.webview_label = Some(label.clone());
+        tab.sleeping = false;
+        tab.loading = true;
+        tab.url = url.to_string();
+        if tab.favicon.is_empty() {
+            tab.favicon = favicon_guess(&url);
+        }
+        Some(tab.zoom)
     });
+    let Some(zoom) = zoom else {
+        return Err("tab is gone".to_string());
+    };
 
     let (position, size) = content_bounds(app);
-    let builder = build_tab_webview(app, &id, url);
+    let builder = build_tab_webview(app, id, &label, url);
     let webview = match window.add_child(builder, position, size) {
         Ok(webview) => webview,
         Err(error) => {
-            with_browser(app, |b| b.tabs.retain(|t| t.id != id));
-            emit_state(app);
+            with_browser(app, |b| {
+                if let Some(tab) = b.tabs.iter_mut().find(|t| t.id == id) {
+                    tab.webview_label = None;
+                    tab.sleeping = true;
+                    tab.loading = false;
+                }
+            });
             return Err(error.to_string());
         }
     };
+    // Hidden until apply_layout shows the active tab.
+    let _ = webview.hide();
+    if (zoom - 1.0).abs() > 0.001 {
+        let _ = webview.set_zoom(zoom);
+    }
 
     #[cfg(windows)]
-    crate::webview2::attach(app, &webview, id.clone());
-    #[cfg(not(windows))]
-    let _ = &webview;
-
-    if activate {
-        with_browser(app, |b| b.active_id = Some(id.clone()));
-    }
-    apply_layout(app);
-    emit_state(app);
-    Ok(id)
+    crate::webview2::attach(app, &webview, id.to_string());
+    Ok(())
 }
 
-pub fn activate(app: &AppHandle, id: &str) {
-    let changed = with_browser(app, |b| {
-        if b.tabs.iter().any(|t| t.id == id) {
-            b.active_id = Some(id.to_string());
-            true
-        } else {
-            false
-        }
+/// Creates a tab with a webview. Must not be called while the state lock is held.
+pub fn create_tab(app: &AppHandle, url: Url, activate_tab: bool) -> Result<String, String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    with_browser(app, |b| {
+        let mut tab = Tab::record(id.clone(), url.to_string());
+        tab.favicon = favicon_guess(&url);
+        b.tabs.push(tab);
     });
-    if changed {
+
+    if let Err(error) = spawn_webview(app, &id, url) {
+        with_browser(app, |b| b.tabs.retain(|t| t.id != id));
+        emit_state(app);
+        return Err(error);
+    }
+
+    let first = with_browser(app, |b| b.active_id.is_none());
+    if activate_tab || first {
+        activate(app, &id);
+    } else {
         apply_layout(app);
         emit_state(app);
     }
+    Ok(id)
+}
+
+/// Loads a sleeping tab again. Does nothing for tabs with a webview.
+pub fn wake(app: &AppHandle, id: &str) -> Result<(), String> {
+    let url = with_browser(app, |b| {
+        let tab = b.tabs.iter().find(|t| t.id == id && t.sleeping)?;
+        Some(tab.url.clone())
+    });
+    let Some(url) = url else {
+        return Ok(());
+    };
+    let target = load_target(&url);
+    spawn_webview(app, id, target)
+}
+
+/// URL to load for a stored tab URL: http(s) pages as they are, everything
+/// else (start page, empty, unknown schemes) as the start page.
+pub fn load_target(url: &str) -> Url {
+    match Url::parse(url) {
+        Ok(parsed) if matches!(parsed.scheme(), "http" | "https") && !newtab::is_internal(url) => parsed,
+        _ => newtab::newtab_url(),
+    }
+}
+
+pub fn activate(app: &AppHandle, id: &str) {
+    let now = now_millis();
+    let sleeping = with_browser(app, |b| {
+        if !b.tabs.iter().any(|t| t.id == id) {
+            return None;
+        }
+        // Idle time counts from leaving a tab.
+        if let Some(previous) = b.active_id.clone() {
+            if let Some(tab) = b.tabs.iter_mut().find(|t| t.id == previous) {
+                tab.last_active_at = now;
+            }
+        }
+        let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
+        tab.last_active_at = now;
+        b.active_id = Some(id.to_string());
+        Some(tab.sleeping)
+    });
+    let Some(sleeping) = sleeping else {
+        return;
+    };
+    if sleeping {
+        if let Err(error) = wake(app, id) {
+            eprintln!("[tabs] could not wake tab: {error}");
+        }
+    }
+    apply_layout(app);
+    if let Some(webview) = webview_for(app, id) {
+        if !overlay_open(app) {
+            let _ = webview.set_focus();
+        }
+    }
+    emit_state(app);
+}
+
+/// Destroys the webview of a background tab and keeps its record.
+pub fn sleep(app: &AppHandle, id: &str) {
+    let label = with_browser(app, |b| {
+        if b.active_id.as_deref() == Some(id) {
+            return None;
+        }
+        let tab = b.tabs.iter_mut().find(|t| t.id == id && !t.sleeping)?;
+        tab.sleeping = true;
+        tab.audible = false;
+        tab.loading = false;
+        tab.webview_label.take()
+    });
+    let Some(label) = label else {
+        return;
+    };
+    if let Some(webview) = app.get_webview(&label) {
+        let _ = webview.close();
+    }
+    emit_state(app);
+}
+
+/// Tabs that may be put to sleep: not active, not pinned, not audible, not
+/// already sleeping, and unused for at least `max_idle_ms`.
+pub fn idle_tab_ids(tabs: &[Tab], active_id: Option<&str>, now: u64, max_idle_ms: u64) -> Vec<String> {
+    if max_idle_ms == 0 {
+        return Vec::new();
+    }
+    tabs.iter()
+        .filter(|t| Some(t.id.as_str()) != active_id)
+        .filter(|t| !t.pinned && !t.audible && !t.sleeping)
+        .filter(|t| now.saturating_sub(t.last_active_at) >= max_idle_ms)
+        .map(|t| t.id.clone())
+        .collect()
+}
+
+/// Port of `sleepIdleTabs`. Returns how many tabs were put to sleep.
+pub fn sleep_idle_tabs(app: &AppHandle, max_idle_ms: u64) -> usize {
+    let ids = with_browser(app, |b| idle_tab_ids(&b.tabs, b.active_id.as_deref(), now_millis(), max_idle_ms));
+    for id in &ids {
+        sleep(app, id);
+    }
+    ids.len()
+}
+
+/// Checks every minute for idle tabs (`ui.autoSleepMinutes`, 0 = off).
+pub fn start_auto_sleep(app: &AppHandle) {
+    let app = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            let minutes = app
+                .try_state::<crate::settings::SettingsStore>()
+                .map(|store| store.section("ui"))
+                .and_then(|ui| ui.get("autoSleepMinutes").and_then(Value::as_u64))
+                .unwrap_or(30);
+            let count = sleep_idle_tabs(&app, minutes * 60 * 1000);
+            if count > 0 {
+                eprintln!("[tabs] {count} idle tab(s) put to sleep after {minutes} min");
+            }
+        }
+    });
+}
+
+/* -------------------------------------------------------- Session restore */
+
+/// One tab from session.json.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StoredTab {
+    pub url: String,
+    pub title: String,
+    pub favicon: String,
+    pub pinned: bool,
+    pub group_id: Option<String>,
+    pub muted: bool,
+    pub zoom: f64,
+    pub volume: f64,
+}
+
+/// Reads session.json (the `tabs:state` shape). Returns the tabs and the
+/// index of the tab that loads right away; all others stay lazy. Same rules
+/// as main.js: the stored active tab, else the first one.
+pub fn parse_session(session: &Value) -> (Vec<StoredTab>, usize) {
+    let Some(list) = session.get("tabs").and_then(Value::as_array) else {
+        return (Vec::new(), 0);
+    };
+    let active_id = session.get("activeId").and_then(Value::as_str).filter(|id| !id.is_empty());
+    let mut tabs = Vec::new();
+    let mut active_index = None;
+    for entry in list.iter().filter(|e| e.is_object()) {
+        let text = |key: &str| entry.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+        let url = text("url");
+        let url = if url.is_empty() { crate::input::NEWTAB.to_string() } else { url };
+        let id = text("id");
+        if active_index.is_none() && !id.is_empty() && Some(id.as_str()) == active_id {
+            active_index = Some(tabs.len());
+        }
+        let zoom = entry.get("zoom").and_then(Value::as_f64).filter(|z| z.is_finite() && *z > 0.0);
+        let volume = entry.get("volume").and_then(Value::as_f64).filter(|v| v.is_finite());
+        tabs.push(StoredTab {
+            title: text("title"),
+            favicon: text("favicon"),
+            pinned: entry.get("pinned").and_then(Value::as_bool).unwrap_or(false),
+            group_id: entry.get("groupId").and_then(Value::as_str).map(str::to_string),
+            muted: entry.get("muted").and_then(Value::as_bool).unwrap_or(false),
+            zoom: zoom.map(|z| z.clamp(ZOOM_LEVELS[0], ZOOM_LEVELS[ZOOM_LEVELS.len() - 1])).unwrap_or(1.0),
+            // Only a boost above 100 % is restored (the page owns normal volume).
+            volume: volume.filter(|v| *v > 1.0001).map(|v| v.min(3.0)).unwrap_or(1.0),
+            url,
+        });
+    }
+    (tabs, active_index.unwrap_or(0))
+}
+
+/// Turns stored tabs into sleeping records (no webviews yet).
+pub fn lazy_records(stored: &[StoredTab]) -> Vec<Tab> {
+    stored
+        .iter()
+        .map(|entry| {
+            let target = load_target(&entry.url);
+            let is_new_tab = newtab::is_internal(target.as_str());
+            let mut tab = Tab::record(uuid::Uuid::new_v4().to_string(), target.to_string());
+            tab.title = if !entry.title.trim().is_empty() {
+                entry.title.clone()
+            } else if is_new_tab {
+                NEW_TAB_TITLE.to_string()
+            } else {
+                entry.url.clone()
+            };
+            let favicon = entry.favicon.trim();
+            if favicon.starts_with("http://") || favicon.starts_with("https://") || favicon.starts_with("data:image/") {
+                tab.favicon = favicon.to_string();
+            }
+            tab.pinned = entry.pinned;
+            tab.group_id = if entry.pinned { None } else { entry.group_id.clone() };
+            tab.muted = entry.muted;
+            tab.zoom = entry.zoom;
+            tab.volume = entry.volume;
+            tab
+        })
+        .collect()
+}
+
+/// Restores session.json: every tab appears in the list, only the last
+/// active one loads. Returns false when there was nothing to restore.
+pub fn restore_session(app: &AppHandle, session: &Value) -> bool {
+    let (stored, active_index) = parse_session(session);
+    if stored.is_empty() {
+        return false;
+    }
+    let records = lazy_records(&stored);
+    let active = records.get(active_index).or_else(|| records.first()).map(|t| t.id.clone());
+    with_browser(app, |b| b.tabs.extend(records));
+    match active {
+        Some(id) => activate(app, &id),
+        None => emit_state(app),
+    }
+    true
+}
+
+pub const SESSION_FILE: &str = "session.json";
+
+/// Writes session.json next to settings.json when `ui.restoreSession` is on.
+pub fn save_session(app: &AppHandle) {
+    let Some(store) = app.try_state::<crate::settings::SettingsStore>() else {
+        return;
+    };
+    let enabled = store.section("ui").get("restoreSession").and_then(Value::as_bool).unwrap_or(true);
+    if !enabled {
+        return;
+    }
+    let path = store.dir().join(SESSION_FILE);
+    if let Err(error) = crate::settings::write_json_atomic(&path, &session_value(app)) {
+        eprintln!("[tabs] could not save session: {error}");
+    }
+}
+
+/// Reads session.json if `ui.restoreSession` is on.
+pub fn read_session(app: &AppHandle) -> Option<Value> {
+    let store = app.try_state::<crate::settings::SettingsStore>()?;
+    let enabled = store.section("ui").get("restoreSession").and_then(Value::as_bool).unwrap_or(true);
+    if !enabled {
+        return None;
+    }
+    let text = std::fs::read_to_string(store.dir().join(SESSION_FILE)).ok()?;
+    serde_json::from_str(&text).ok()
+}
+
+/// The current tab list in the `tabs:state` shape, for session.json.
+pub fn session_value(app: &AppHandle) -> Value {
+    let payload = with_browser(app, |b| state_payload(b));
+    serde_json::to_value(payload).unwrap_or(Value::Null)
 }
 
 pub fn close_tab(app: &AppHandle, id: &str) -> Result<(), String> {
@@ -414,13 +727,14 @@ pub fn close_tab(app: &AppHandle, id: &str) -> Result<(), String> {
             let next = b.tabs.get(index).or_else(|| b.tabs.last());
             b.active_id = next.map(|t| t.id.clone());
         }
-        Some((tab.label(), b.tabs.is_empty()))
+        let next = b.active_id.clone();
+        Some((tab.label(), b.tabs.is_empty(), next))
     });
-    let Some((label, empty)) = closed else {
+    let Some((label, empty, next)) = closed else {
         return Ok(());
     };
 
-    if let Some(webview) = app.get_webview(&label) {
+    if let Some(webview) = label.and_then(|label| app.get_webview(&label)) {
         let _ = webview.close();
     }
 
@@ -428,6 +742,9 @@ pub fn close_tab(app: &AppHandle, id: &str) -> Result<(), String> {
         // Same as Electron: closing the last tab opens a fresh start page.
         create_tab(app, newtab::newtab_url(), true)?;
         focus_omnibox(app);
+    } else if let Some(next) = next {
+        // Wakes the neighbour if it was sleeping.
+        activate(app, &next);
     } else {
         apply_layout(app);
         emit_state(app);
@@ -437,8 +754,37 @@ pub fn close_tab(app: &AppHandle, id: &str) -> Result<(), String> {
 
 /// The active tab's webview, if any.
 pub fn active_webview(app: &AppHandle) -> Option<tauri::Webview> {
-    let label = with_browser(app, |b| b.active_id.as_deref().map(tab_label))?;
-    app.get_webview(&label)
+    let id = active_id(app)?;
+    webview_for(app, &id)
+}
+
+/// Loads `url` in the active tab (waking it if needed). Returns false when
+/// there is no active tab.
+pub fn navigate_active(app: &AppHandle, url: Url) -> Result<bool, String> {
+    let Some(id) = active_id(app) else {
+        return Ok(false);
+    };
+    let sleeping = with_browser(app, |b| {
+        let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
+        tab.url = url.to_string();
+        tab.loading = true;
+        Some(tab.sleeping)
+    });
+    match sleeping {
+        None => return Ok(false),
+        Some(true) => {
+            spawn_webview(app, &id, url)?;
+            apply_layout(app);
+        }
+        Some(false) => {
+            if let Some(webview) = webview_for(app, &id) {
+                webview.navigate(url).map_err(|e| e.to_string())?;
+                let _ = webview.set_focus();
+            }
+        }
+    }
+    emit_state(app);
+    Ok(true)
 }
 
 pub fn active_id(app: &AppHandle) -> Option<String> {
@@ -451,7 +797,7 @@ pub fn tab_count(app: &AppHandle) -> usize {
 
 /// The webview of a tab, if it has one.
 pub fn webview_for(app: &AppHandle, id: &str) -> Option<tauri::Webview> {
-    let label = with_browser(app, |b| b.tabs.iter().find(|t| t.id == id).map(Tab::label))?;
+    let label = with_browser(app, |b| b.tabs.iter().find(|t| t.id == id).and_then(Tab::label))?;
     app.get_webview(&label)
 }
 
@@ -535,7 +881,7 @@ pub fn zoom(app: &AppHandle, action: &str, value: Option<f64>) -> Result<(), Str
     let Some((label, factor)) = target else {
         return Ok(());
     };
-    if let Some(webview) = app.get_webview(&label) {
+    if let Some(webview) = label.and_then(|label| app.get_webview(&label)) {
         webview.set_zoom(factor).map_err(|e| e.to_string())?;
     }
     emit_state(app);
@@ -626,6 +972,7 @@ pub fn on_window_event(app: &AppHandle, event: &WindowEvent) {
         }
         WindowEvent::Focused(focused) => emit_chrome(app, "window:focus", *focused),
         WindowEvent::CloseRequested { .. } => {
+            save_session(app);
             if let Some(store) = app.try_state::<crate::settings::SettingsStore>() {
                 store.history.flush();
             }
@@ -651,5 +998,80 @@ mod tests {
         assert_eq!(next_zoom(1.0, "set", None), Some(1.0));
         assert_eq!(next_zoom(f64::NAN, "in", None), Some(1.1));
         assert_eq!(next_zoom(1.0, "bogus", None), None);
+    }
+}
+
+#[cfg(test)]
+mod session_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn tab(id: &str, last: u64) -> Tab {
+        let mut tab = Tab::record(id.to_string(), "https://example.com/".to_string());
+        tab.sleeping = false;
+        tab.last_active_at = last;
+        tab
+    }
+
+    #[test]
+    fn restore_loads_only_the_stored_active_tab() {
+        let session = json!({
+            "activeId": "b",
+            "tabs": [
+                { "id": "a", "url": "", "title": "" },
+                { "id": "b", "url": "https://example.com/x", "title": "X", "zoom": 1.5, "pinned": true, "groupId": "g" },
+                { "id": "c", "url": "javascript:alert(1)", "title": "", "volume": 2.5, "muted": true },
+                "junk"
+            ]
+        });
+        let (stored, active) = parse_session(&session);
+        assert_eq!(stored.len(), 3);
+        assert_eq!(active, 1);
+        assert_eq!(stored[0].url, crate::input::NEWTAB);
+        assert_eq!(stored[1].zoom, 1.5);
+        assert_eq!(stored[2].volume, 2.5);
+
+        let records = lazy_records(&stored);
+        assert!(records.iter().all(|t| t.sleeping && t.webview_label.is_none()));
+        assert!(records[0].is_new_tab());
+        assert_eq!(records[0].title, NEW_TAB_TITLE);
+        assert_eq!(records[1].title, "X");
+        assert!(records[1].pinned);
+        // Pinned tabs never keep a group (same as setPinned in tabs.js).
+        assert_eq!(records[1].group_id, None);
+        // Unsafe schemes become the start page.
+        assert!(records[2].is_new_tab());
+        assert!(records[2].muted);
+    }
+
+    #[test]
+    fn restore_falls_back_to_first_tab() {
+        let (stored, active) = parse_session(&json!({ "activeId": "zzz", "tabs": [{ "url": "https://a.test/" }, { "url": "https://b.test/" }] }));
+        assert_eq!((stored.len(), active), (2, 0));
+        let (stored, active) = parse_session(&json!({ "tabs": "nope" }));
+        assert_eq!((stored.len(), active), (0, 0));
+        let (stored, _) = parse_session(&json!({ "tabs": [{ "url": "https://a.test/", "zoom": 99 }] }));
+        assert_eq!(stored[0].zoom, 3.0);
+        assert_eq!(stored[0].volume, 1.0);
+    }
+
+    #[test]
+    fn idle_selection_skips_active_pinned_audible_sleeping() {
+        let minute = 60_000;
+        let now = 100 * minute;
+        let mut tabs = vec![
+            tab("active", 0),
+            tab("old", 0),
+            tab("fresh", now - minute),
+            tab("pinned", 0),
+            tab("audible", 0),
+            tab("sleeping", 0),
+        ];
+        tabs[3].pinned = true;
+        tabs[4].audible = true;
+        tabs[5].sleeping = true;
+        assert_eq!(idle_tab_ids(&tabs, Some("active"), now, 30 * minute), vec!["old".to_string()]);
+        assert!(idle_tab_ids(&tabs, Some("active"), now, 0).is_empty());
+        assert_eq!(idle_tab_ids(&tabs, Some("active"), now, minute).len(), 2);
     }
 }

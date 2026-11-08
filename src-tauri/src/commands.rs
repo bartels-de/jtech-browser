@@ -50,8 +50,12 @@ pub async fn chrome_ready(app: AppHandle) -> CmdResult {
     emit_chrome(&app, "settings:update", store.public());
 
     if tabs::tab_count(&app) == 0 {
-        tabs::create_tab(&app, crate::newtab::newtab_url(), true)?;
-        tabs::focus_omnibox(&app);
+        // Session restore: all tabs are listed, only the last active one loads.
+        let restored = tabs::read_session(&app).is_some_and(|session| tabs::restore_session(&app, &session));
+        if !restored {
+            tabs::create_tab(&app, crate::newtab::newtab_url(), true)?;
+            tabs::focus_omnibox(&app);
+        }
     } else {
         tabs::apply_layout(&app);
         tabs::emit_state(&app);
@@ -89,19 +93,8 @@ pub async fn navigate(app: AppHandle, input: String) -> CmdResult {
     let Some(url) = resolve(&app, &input).and_then(|target| tabs::to_url(&target)) else {
         return Ok(());
     };
-    match (tabs::active_id(&app), tabs::active_webview(&app)) {
-        (Some(id), Some(webview)) => {
-            let shown = url.to_string();
-            tabs::update_tab(&app, &id, |tab| {
-                tab.url = shown;
-                tab.loading = true;
-            });
-            webview.navigate(url).map_err(|e| e.to_string())?;
-            let _ = webview.set_focus();
-        }
-        _ => {
-            tabs::create_tab(&app, url, true)?;
-        }
+    if !tabs::navigate_active(&app, url.clone())? {
+        tabs::create_tab(&app, url, true)?;
     }
     Ok(())
 }
