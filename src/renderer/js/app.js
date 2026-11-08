@@ -110,6 +110,7 @@ const els = {
   densityButtons: [...document.querySelectorAll('#setting-density .segmented__btn')],
   favoritesBarToggle: document.getElementById('setting-favorites-bar'),
   gamingModeToggle: document.getElementById('setting-gaming-mode'),
+  autoSleep: document.getElementById('setting-auto-sleep'),
   gamingModeButton: document.getElementById('gaming-mode-toggle'),
   resourceHudToggle: document.getElementById('resource-hud-toggle'),
   resPanel: document.getElementById('res-panel'),
@@ -1056,7 +1057,7 @@ function applyTheme(input) {
   document.body.style.backgroundPosition = wallpaper ? 'center' : '';
   window.JTechBackgrounds?.attach(document.querySelector('.backdrop'), {
     ...backgroundOptions({ accent, accentAlt, bg, text, bgAnimation, animationSpeed, animationIntensity, glowIntensity }),
-    paused: backgroundPaused,
+    paused: backdropPaused(),
     hidden: Boolean(wallpaper)
   });
 
@@ -1110,11 +1111,22 @@ function backgroundOptions(source, id = source.bgAnimation) {
 }
 
 // Gaming-Modus pausiert die Hintergrund-Animation des Interfaces.
+// Fenster im Hintergrund (z. B. während eines Spiels): Animation ebenfalls anhalten.
 let backgroundPaused = false;
+let windowHasFocus = true;
+
+function backdropPaused() {
+  return backgroundPaused || !windowHasFocus;
+}
 
 function setBackgroundPaused(paused) {
   backgroundPaused = Boolean(paused);
-  document.querySelector('.backdrop')?.__jtechBackground?.setPaused(backgroundPaused);
+  document.querySelector('.backdrop')?.__jtechBackground?.setPaused(backdropPaused());
+}
+
+function setWindowFocus(focused) {
+  windowHasFocus = Boolean(focused);
+  document.querySelector('.backdrop')?.__jtechBackground?.setPaused(backdropPaused());
 }
 
 /** Gedämpfte Textfarbe aus Text und Hintergrund mischen. */
@@ -1545,7 +1557,7 @@ const cloneHotkeys = (hotkeys) => Object.fromEntries(
 
 const appSettings = {
   search: { engine: 'google', urlTemplate: DEFAULT_SEARCH_TEMPLATE },
-  ui: { tabLayout: 'vertical', favoritesBar: true, sidebarWidth: 252, restoreSession: true, gamingMode: false, userName: '', density: 'normal' },
+  ui: { tabLayout: 'vertical', favoritesBar: true, sidebarWidth: 252, restoreSession: true, gamingMode: false, userName: '', density: 'normal', autoSleepMinutes: 30 },
   favorites: [],
   saved: [],
   shortcuts: [],
@@ -2430,6 +2442,7 @@ function syncSettingsForm({ preserveFocus = false } = {}) {
   }
 
   if (els.gamingModeToggle) els.gamingModeToggle.checked = appSettings.ui.gamingMode === true;
+  if (els.autoSleep) els.autoSleep.value = String(appSettings.ui.autoSleepMinutes ?? 30);
   if (els.gamingModeButton) els.gamingModeButton.classList.toggle('is-active', appSettings.ui.gamingMode === true);
 
   if (els.restoreSessionToggle) els.restoreSessionToggle.checked = appSettings.ui.restoreSession !== false;
@@ -3559,6 +3572,11 @@ if (els.gamingModeToggle) {
     saveSettingsPatch({ ui: { gamingMode: els.gamingModeToggle.checked } });
   });
 }
+if (els.autoSleep) {
+  els.autoSleep.addEventListener('change', () => {
+    saveSettingsPatch({ ui: { autoSleepMinutes: Number(els.autoSleep.value) } });
+  });
+}
 if (els.gamingModeButton) {
   els.gamingModeButton.addEventListener('click', () => {
     saveSettingsPatch({ ui: { gamingMode: !(appSettings.ui.gamingMode === true) } });
@@ -4617,6 +4635,18 @@ api.onHistory((history) => {
   appSettings.history = Array.isArray(history) ? history : appSettings.history;
   renderHistory();
 });
+
+// Einzelner neuer/aktualisierter Verlaufseintrag statt der ganzen Liste.
+api.onHistoryEntry?.((entry) => {
+  if (!entry || typeof entry.id !== 'string') return;
+  const history = (appSettings.history || []).filter((item) => item.id !== entry.id);
+  history.unshift(entry);
+  if (history.length > 2000) history.length = 2000;
+  appSettings.history = history;
+  if (!els.settings.hidden) renderHistory();
+});
+
+api.onWindowFocus?.(setWindowFocus);
 
 api.onDownloads((list) => {
   downloads = Array.isArray(list) ? list : downloads;

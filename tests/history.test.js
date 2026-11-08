@@ -63,7 +63,7 @@ test('neue Einträge werden gebündelt gespeichert und beim Flush geschrieben', 
   const result = config.addHistoryEntry({ url: 'https://example.com/a', title: 'A' });
   config.addHistoryEntry({ url: 'https://example.com/b', title: 'B' });
 
-  assert.equal(result[0].url, 'https://example.com/a');
+  assert.equal(result.url, 'https://example.com/a');
   assert.equal(config.getHistory().length, 2);
   // settings.json bleibt beim Surfen unangetastet.
   assert.equal(fs.readFileSync(path.join(dir, 'settings.json'), 'utf8'), settingsBefore);
@@ -92,6 +92,6 @@ test('ungültige URLs landen nicht im Verlauf', () => {
   config.loadSettings();
 
   const result = config.addHistoryEntry({ url: 'javascript:alert(1)', title: 'x' });
-  assert.ok(Array.isArray(result));
-  assert.equal(result.length, 0);
+  assert.equal(result, null);
+  assert.equal(config.getHistory().length, 0);
 });

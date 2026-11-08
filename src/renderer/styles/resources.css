@@ -540,3 +540,9 @@ body.theme-light .res-proc__btn.is-confirm {
   opacity: 1;
   transform: none;
 }
+
+/* Einstellungen: Abstand zwischen Schaltern und Auswahlfeldern */
+.settings__panel .switch-row + .field,
+.settings__panel .field + .switch-row {
+  margin-top: 14px;
+}
