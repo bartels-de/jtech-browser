@@ -1,164 +1,166 @@
 # JTech Browser
 
-Ein gaming-orientierter Desktop-Browser auf Basis von **Electron 45** (Chromium),
-mit Fokus auf ein vollständig anpassbares Interface.
+A gaming-oriented desktop browser built on **Electron 45** (Chromium), focused on
+a fully customizable interface. The browser UI is in German.
 
-## Funktionen (v0.7.0)
+## Features (v0.7.0)
 
-**Tabs & Navigation**
-- Vertikale Tabs in der Seitenleiste (Breite per Ziehen anpassbar)
-- Tab-Gruppen mit Farben, Anheften, Stummschalten, Duplizieren, Tab-Kontextmenü
-- Split-View (zwei Tabs nebeneinander, Verhältnis einstellbar)
-- Tab-Suche (`Ctrl+Shift+A`) und Command-Palette (`Ctrl+K`)
-- Session-Restore beim Start, zuletzt geschlossene Tabs wieder öffnen
-- Adress- und Suchleiste mit Vorschlägen aus offenen Tabs, Lesezeichen und Verlauf
-- **JTech Bangs**: `!yt`, `!yt-d`, `!g`, `!ddg`, `!gh` sowie eigene Bangs – in Adressleiste und Startseite
-- Zoom pro Website (wird gespeichert), Suchen auf der Seite, Drucken, Vollbild
-- Fehlerseite im Browser-Look statt Chromium-Fehlercode
+**Tabs & navigation**
+- Vertical tabs in the sidebar (resizable by dragging)
+- Tab groups with colors, pinning, muting, duplicating, tab context menu
+- Split view (two tabs side by side, adjustable ratio)
+- Tab search (`Ctrl+Shift+A`) and command palette (`Ctrl+K`)
+- Session restore on startup, reopen recently closed tabs
+- Address and search bar with suggestions from open tabs, bookmarks and history
+- **JTech Bangs**: `!yt`, `!yt-d`, `!g`, `!ddg`, `!gh` plus custom bangs – in the address bar and on the new tab page
+- Per-site zoom (persisted), find in page, print, fullscreen
+- Branded error page instead of Chromium error codes
 
-**Medien & Gaming**
-- Media-Hub: alle laufenden Videos/Audios mit Play/Pause, Spulen, Stummschalten
-- Lautstärke pro Tab, Verstärkung bis 300 % (Web Audio)
-- Bild-im-Bild (`Ctrl+Shift+P`)
-- Gaming-Modus: Hintergrund-Tabs werden schlafen gelegt
-- Ressourcen-HUD mit RAM/CPU pro Tab
+**Media & gaming**
+- Media hub: all playing video/audio with play/pause, seeking and muting
+- Per-tab volume, boost up to 300 % (Web Audio)
+- Picture-in-picture (`Ctrl+Shift+P`)
+- Gaming mode: background tabs are put to sleep
+- Resource HUD with RAM/CPU per tab
 
-**Daten & Privatsphäre**
-- Favoritenleiste, Lesezeichen mit Ordnern und Tags, Verlauf, Downloads
-- Werbe- und Tracker-Blocker (Ghostery)
-- Chrome-Erweiterungen: aus dem Chrome Web Store (URL oder ID) oder als `.crx`/`.zip`/Ordner
+**Data & privacy**
+- Favorites bar, bookmarks with folders and tags, history, downloads
+- Ad and tracker blocker (Ghostery)
+- Chrome extensions: from the Chrome Web Store (URL or ID) or as `.crx`/`.zip`/folder
 
-**Design-Studio**
-- Theme-Editor mit Live-Vorschau, 12 Presets, eigenen gespeicherten Themes, Import/Export, „Zufällig“
-- Hintergrund-Animationen, Glas-Effekt, Glow, Rahmenstil, Schrift, Cursor-Effekte, eigenes CSS
+**Design Studio**
+- Theme editor with live preview, 12 presets, saved custom themes, import/export, randomize
+- Background animations, glass effect, glow, border style, fonts, cursor effects, custom CSS
 
-Frameless Glas-UI mit eigener Titlebar und Fenstersteuerung. Startseite: `jtech://newtab`.
+Frameless glass UI with a custom title bar and window controls. New tab page: `jtech://newtab`.
 
-## Starten
+## Getting started
 
 ```powershell
 npm install
-npm start          # Browser starten
-npm run dev        # mit DevTools für das Browser-UI
-npm test           # Tests
-npm run build      # Windows-Installer (NSIS, x64) nach dist/
+npm start          # start the browser
+npm run dev        # with DevTools for the browser UI
+npm test           # run tests
+npm run build      # Windows installer (NSIS, x64) into dist/
 ```
 
-## Design-Studio
+## Design Studio
 
-Über den Regler-Button in der Toolbar öffnet sich das Design-Studio. Während es
-offen ist, wird die aktive Webseite ausgeblendet. **Esc** oder ein Klick außerhalb
-schließt es.
+The slider button in the toolbar opens the Design Studio. While it is open, the
+active web page is hidden. **Esc** or a click outside closes it.
 
-| Reiter | Inhalt |
+| Tab | Contents |
 | --- | --- |
-| **Farben** | Akzentfarben, Hintergrund, Textfarben |
-| **Oberfläche** | Glas-Deckkraft, Blur, Radius, Rahmen, Schatten, Sättigung, Rahmenstil |
-| **Hintergrund** | Wallpaper-URL oder Animation (Orbs, Partikel, Wellen, Mesh, Rauschen, Aurora, Grid, Sterne, Matrix, Pulse, Nebel) mit Geschwindigkeit und Intensität |
-| **Stil** | Browser-Stil (Standard, Aufgeräumt, Animation, Gaming, Minimal), Glow, Übergangsgeschwindigkeit, Schriftart und -größe |
-| **Effekte** | Cursor-Effekte (Spur, Funken, Komet, Welle, Laser, Blasen), Farbe, Größe, Intensität, eigenes Cursor-Bild |
-| **Erweitert** | Eigenes CSS für Browser-UI und Startseite |
+| **Colors** | Accent colors, background, text colors |
+| **Surface** | Glass opacity, blur, radius, stroke, shadow, saturation, border style |
+| **Background** | Wallpaper URL or animation (orbs, particles, waves, mesh, noise, aurora, grid, stars, matrix, pulse, fog) with speed and intensity |
+| **Style** | Browser style (default, clean, animated, gaming, minimal), glow, transition speed, font family and size |
+| **Effects** | Cursor effects (trail, sparks, comet, ripple, laser, bubbles), color, size, intensity, custom cursor image |
+| **Advanced** | Custom CSS for the browser UI and the new tab page |
 
-Änderungen werden sofort angewendet und nach 250 ms automatisch gespeichert.
-„Auf Standard zurücksetzen“ stellt das Obsidian-Theme wieder her.
+Changes apply immediately and are saved automatically after 250 ms. "Reset to
+default" restores the Obsidian theme.
 
-## Standard-Hotkeys
+## Default hotkeys
 
-| Aktion | Tasten |
+| Action | Keys |
 | --- | --- |
-| Neuer Tab | `Ctrl+T` |
-| Tab schließen | `Ctrl+W` |
-| Tab wieder öffnen | `Ctrl+Shift+T` |
-| Adressleiste | `Ctrl+L`, `Alt+D` |
-| Neu laden / hart neu laden | `Ctrl+R`, `F5` / `Ctrl+Shift+R`, `Ctrl+F5` |
-| Zurück / Vorwärts | `Alt+←` / `Alt+→` |
-| Nächster / vorheriger Tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
-| Einstellungen | `Ctrl+,` |
-| Command-Palette | `Ctrl+K` |
-| Tab-Suche | `Ctrl+Shift+A` |
-| Auf Seite suchen | `Ctrl+F` |
-| Split-View | `Ctrl+\` |
-| Bild-im-Bild | `Ctrl+Shift+P` |
-| Vollbild | `F11` |
-| Drucken | `Ctrl+P` |
-| Zoom + / − / zurücksetzen | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
+| New tab | `Ctrl+T` |
+| Close tab | `Ctrl+W` |
+| Reopen closed tab | `Ctrl+Shift+T` |
+| Focus address bar | `Ctrl+L`, `Alt+D` |
+| Reload / hard reload | `Ctrl+R`, `F5` / `Ctrl+Shift+R`, `Ctrl+F5` |
+| Back / forward | `Alt+←` / `Alt+→` |
+| Next / previous tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Settings | `Ctrl+,` |
+| Command palette | `Ctrl+K` |
+| Tab search | `Ctrl+Shift+A` |
+| Find in page | `Ctrl+F` |
+| Split view | `Ctrl+\` |
+| Picture-in-picture | `Ctrl+Shift+P` |
+| Fullscreen | `F11` |
+| Print | `Ctrl+P` |
+| Zoom in / out / reset | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
 | DevTools | `F12`, `Ctrl+Shift+I` |
 
-Hotkeys lassen sich in der `settings.json` als Arrays von Accelerators wie
-`"Ctrl+Shift+T"` ändern.
+Hotkeys can be changed in `settings.json` as arrays of accelerators such as
+`"Ctrl+Shift+T"`.
 
-## Einstellungen
+## Settings
 
-Öffnen über das Zahnrad, die Seitenleiste oder `Ctrl+,`. Änderungen werden nach
-250 ms automatisch gespeichert.
+Open via the gear icon, the sidebar or `Ctrl+,`. Changes are saved automatically
+after 250 ms.
 
-| Bereich | Optionen |
+| Section | Options |
 | --- | --- |
-| Allgemein | Name für die Begrüßung, Suchmaschine (Google, DuckDuckGo, Bing, Ecosia, Startpage, Brave oder eigene Such-URL) |
-| Darstellung | UI-Dichte, Favoritenleiste, Gaming-Modus, Sitzung wiederherstellen |
-| Favoriten / Shortcuts | Einträge hinzufügen, öffnen, entfernen |
-| JTech Bangs | Eigene Bang-Befehle anlegen |
-| Lesezeichen / Verlauf / Downloads | Verwalten, durchsuchen, löschen |
-| Datenschutz | Werbeblocker, Tracking-Schutz |
-| Erweiterungen | Aus dem Web Store installieren, aus Datei laden, entfernen |
-| Hotkeys | Übersicht der Tastenkürzel |
-| Über | Version und Speicherort der Einstellungen |
+| General | Name for the greeting, search engine (Google, DuckDuckGo, Bing, Ecosia, Startpage, Brave or a custom search URL) |
+| Appearance | UI density, favorites bar, gaming mode, restore session |
+| Favorites / Shortcuts | Add, open and remove entries |
+| JTech Bangs | Create custom bang commands |
+| Bookmarks / History / Downloads | Manage, search, delete |
+| Privacy | Ad blocker, tracking protection |
+| Extensions | Install from the Web Store, load from file, remove |
+| Hotkeys | Overview of keyboard shortcuts |
+| About | Version and settings location |
 
-Eigene Such-URLs müssen mit `http(s)://` beginnen und `%s` als Platzhalter
-enthalten.
+Custom search URLs must start with `http(s)://` and contain `%s` as the query
+placeholder.
 
-Die Einstellungen liegen in:
+Settings are stored in:
 
 ```
 %APPDATA%\JTech Browser\settings.json
 ```
 
-Dort liegen auch `session.json`, `crash.log`, der Adblock-Cache und installierte
-Erweiterungen (`extensions\`). Eine alte `%APPDATA%\Pulse\settings.json` wird beim
-ersten Start übernommen. Alle Werte werden im Main-Prozess validiert, bevor sie
-gespeichert werden; die Datei wird atomar geschrieben, eine beschädigte Datei wird
-als Backup gesichert.
+The same folder also holds `session.json`, `crash.log`, the ad blocker cache and
+installed extensions (`extensions\`). An old `%APPDATA%\Pulse\settings.json` is
+migrated on first start. All values are validated in the main process before
+they are saved; the file is written atomically, and a corrupt file is backed up.
 
-## Projektstruktur
+## Project structure
 
 ```
 src/
 ├─ main/
-│  ├─ main.js       Fenster, IPC, jtech://-Protokoll, Hotkeys, Erweiterungen, Downloads, Adblock
-│  ├─ tabs.js       TabManager: eine WebContentsView pro Tab, Split-View, Medien, Injektion
-│  ├─ config.js     settings.json laden/speichern und validieren
-│  └─ shortcuts.js  Accelerator-Parser und Matching
+│  ├─ main.js       Window, IPC, jtech:// protocol, hotkeys, extensions, downloads, ad blocker
+│  ├─ tabs.js       TabManager: one WebContentsView per tab, split view, media, script injection
+│  ├─ config.js     Load, save and validate settings.json
+│  └─ shortcuts.js  Accelerator parser and matching
 ├─ preload/
-│  └─ preload.js    schmale contextBridge-API (window.jtech)
+│  └─ preload.js    Minimal contextBridge API (window.jtech)
 ├─ shared/
-│  └─ cursor-fx.js  Cursor-Effekte (UI, Startseite und Webseiten)
+│  └─ cursor-fx.js  Cursor effects (UI, new tab page and web pages)
 └─ renderer/
-   ├─ index.html    Browser-UI + Overlays (Studio, Einstellungen, Media-Hub, HUD, Palette)
-   ├─ newtab.html   Startseite (jtech://newtab)
-   ├─ changelog.html Wird nach einem Update einmal angezeigt
-   ├─ styles/       theme.css (Design-Tokens), app.css, obsidian.css, polish.css
-   └─ js/app.js     Logik des Browser-UI
-tests/              Hotkeys, Einstellungen, Theme-Validierung (node:test)
+   ├─ index.html    Browser UI + overlays (studio, settings, media hub, HUD, palette)
+   ├─ newtab.html   New tab page (jtech://newtab)
+   ├─ changelog.html Shown once after an update
+   ├─ styles/       theme.css (design tokens), app.css, obsidian.css, polish.css
+   └─ js/app.js     Browser UI logic
+tests/              Hotkeys, settings, theme validation (node:test)
 ```
 
-## Architektur-Entscheidungen
+## Architecture decisions
 
-- **WebContentsView statt `<webview>`**: jeder Tab ist ein eigener Renderer-Prozess,
-  das Browser-UI läuft getrennt davon.
-- **Frameless Window** mit eigener Titlebar. Höhe und Seitenleistenbreite werden an
-  den Main-Prozess gemeldet, damit die Webseiten pixelgenau daneben sitzen.
-- **Overlays statt eigener Fenster**: Studio und Einstellungen liegen im UI-Renderer,
-  die aktive Webseite wird solange ausgeblendet.
-- **Sicherheit**: `contextIsolation` + `sandbox` aktiv, kein Node im Renderer, nur
-  eine minimale IPC-API. In der Adressleiste sind nur `http(s)`-URLs erlaubt.
-- **Theming**: alle Werte sind CSS-Variablen; die Startseite bekommt Theme, Suche und
-  Shortcuts per `executeJavaScript` injiziert.
+- **WebContentsView instead of `<webview>`**: every tab runs in its own renderer
+  process, separate from the browser UI.
+- **Frameless window** with a custom title bar. The UI height and sidebar width
+  are reported to the main process so web pages are positioned pixel-perfectly.
+- **Overlays instead of separate windows**: the studio and settings live in the UI
+  renderer; the active web page is hidden while they are open.
+- **Security**: `contextIsolation` + `sandbox` enabled, no Node in the renderer,
+  only a minimal IPC API. The address bar only allows `http(s)` URLs.
+- **Theming**: all values are CSS variables; the new tab page receives theme,
+  search and shortcuts via `executeJavaScript`.
 
 ## Roadmap
 
-1. **Hotkey-Editor**: Tasten in den Einstellungen neu belegen, mit Konflikt-Erkennung
-2. **Erweiterungen**: `electron-chrome-extensions` einbinden (Popups, Toolbar-Icons, chrome.*-APIs)
-3. **Verlauf** in eigene Datei auslagern und gebündelt speichern
-4. **Auto-Update** (electron-updater ist eingebaut, braucht noch einen Update-Server)
-5. **Sidebar** mit Schnellzugriff (Discord, Twitch, …)
-6. Force-Dark-Mode, Resource-Limiter
+1. **Hotkey editor**: rebind keys in settings, with conflict detection
+2. **Extensions**: integrate `electron-chrome-extensions` (popups, toolbar icons, chrome.* APIs)
+3. **History**: move to a separate file and save in batches
+4. **Auto-update** (electron-updater is built in but still needs an update server)
+5. **Sidebar** with quick access (Discord, Twitch, …)
+6. Force dark mode, resource limiter
+
+## License
+
+MIT
