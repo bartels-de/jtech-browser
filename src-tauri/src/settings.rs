@@ -395,6 +395,11 @@ impl SettingsStore {
         self.lock().clone()
     }
 
+    /// One top-level section (e.g. "hotkeys"), `Null` if missing.
+    pub fn section(&self, key: &str) -> Value {
+        self.lock().get(key).cloned().unwrap_or(Value::Null)
+    }
+
     pub fn theme(&self) -> Value {
         self.lock()["theme"].clone()
     }

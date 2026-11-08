@@ -3,11 +3,13 @@
 // The default settings are one large json! literal.
 #![recursion_limit = "256"]
 
+mod clipboard;
 mod commands;
 mod history;
 mod input;
 mod newtab;
 mod settings;
+mod shortcuts;
 mod tabs;
 #[cfg(windows)]
 mod webview2;
@@ -112,11 +114,15 @@ fn main() {
                 tauri::webview::NewWindowResponse::Deny
             })
             .auto_resize();
-            window.add_child(
+            let chrome = window.add_child(
                 chrome,
                 LogicalPosition::new(0.0, 0.0),
                 LogicalSize::new(size.width, size.height),
             )?;
+            #[cfg(windows)]
+            webview2::attach_chrome(app.handle(), &chrome);
+            #[cfg(not(windows))]
+            let _ = &chrome;
 
             let handle = app.handle().clone();
             window.on_window_event(move |event| tabs::on_window_event(&handle, event));

@@ -33,6 +33,7 @@ pub struct Tab {
     pub loading: bool,
     pub can_go_back: bool,
     pub can_go_forward: bool,
+    pub zoom: f64,
 }
 
 impl Tab {
@@ -61,7 +62,12 @@ pub struct Browser {
     /// The UI asked to hide the page (`toggleWebview(false)`).
     pub webview_hidden: bool,
     pub maximized: bool,
+    pub fullscreen: bool,
+    /// URLs of recently closed tabs (newest last, max 25) for "reopen tab".
+    pub closed_history: Vec<String>,
 }
+
+const MAX_CLOSED_HISTORY: usize = 25;
 
 #[derive(Default)]
 pub struct BrowserState(pub Mutex<Browser>);
@@ -143,7 +149,7 @@ fn state_payload(browser: &Browser) -> StatePayload {
                     volume: 1.0,
                     volume_explicit: false,
                     media_active: false,
-                    zoom: 1.0,
+                    zoom: tab.zoom,
                     sleeping: false,
                 }
             })
@@ -352,6 +358,7 @@ pub fn create_tab(app: &AppHandle, url: Url, activate: bool) -> Result<String, S
             loading: true,
             can_go_back: false,
             can_go_forward: false,
+            zoom: 1.0,
         });
     });
 
@@ -398,6 +405,11 @@ pub fn close_tab(app: &AppHandle, id: &str) -> Result<(), String> {
     let closed = with_browser(app, |b| {
         let index = b.tabs.iter().position(|t| t.id == id)?;
         let tab = b.tabs.remove(index);
+        if !tab.is_new_tab() && !tab.url.starts_with("data:") && !tab.url.is_empty() {
+            b.closed_history.push(tab.url.clone());
+            let excess = b.closed_history.len().saturating_sub(MAX_CLOSED_HISTORY);
+            b.closed_history.drain(..excess);
+        }
         if b.active_id.as_deref() == Some(id) {
             let next = b.tabs.get(index).or_else(|| b.tabs.last());
             b.active_id = next.map(|t| t.id.clone());
@@ -435,6 +447,99 @@ pub fn active_id(app: &AppHandle) -> Option<String> {
 
 pub fn tab_count(app: &AppHandle) -> usize {
     with_browser(app, |b| b.tabs.len())
+}
+
+/// The webview of a tab, if it has one.
+pub fn webview_for(app: &AppHandle, id: &str) -> Option<tauri::Webview> {
+    let label = with_browser(app, |b| b.tabs.iter().find(|t| t.id == id).map(Tab::label))?;
+    app.get_webview(&label)
+}
+
+/// URL of the active tab as the user sees it (empty for the start page).
+pub fn active_url(app: &AppHandle) -> Option<String> {
+    with_browser(app, |b| {
+        let id = b.active_id.as_deref()?;
+        let tab = b.tabs.iter().find(|t| t.id == id)?;
+        Some(if tab.is_new_tab() { String::new() } else { tab.url.clone() })
+    })
+}
+
+pub fn overlay_open(app: &AppHandle) -> bool {
+    with_browser(app, |b| b.overlay)
+}
+
+/// Activates the next (`1`) or previous (`-1`) tab, wrapping around.
+pub fn cycle(app: &AppHandle, direction: isize) -> Result<(), String> {
+    let next = with_browser(app, |b| {
+        let len = b.tabs.len() as isize;
+        if len < 2 {
+            return None;
+        }
+        let index = b
+            .active_id
+            .as_deref()
+            .and_then(|id| b.tabs.iter().position(|t| t.id == id))
+            .map(|i| i as isize)
+            .unwrap_or(-1);
+        let next = (index + direction).rem_euclid(len) as usize;
+        Some(b.tabs[next].id.clone())
+    });
+    if let Some(id) = next {
+        activate(app, &id);
+    }
+    Ok(())
+}
+
+/// Opens the most recently closed tab again (or a start page).
+pub fn reopen_closed(app: &AppHandle) -> Result<(), String> {
+    let url = with_browser(app, |b| b.closed_history.pop());
+    let target = url
+        .and_then(|u| Url::parse(&u).ok())
+        .unwrap_or_else(newtab::newtab_url);
+    create_tab(app, target, true).map(|_| ())
+}
+
+/// Zoom levels, same as `TabManager.zoom` in tabs.js.
+pub const ZOOM_LEVELS: &[f64] = &[
+    0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0,
+];
+
+/// Next zoom factor for `in`, `out`, `reset` or `set` (with `value`).
+/// Unknown actions return `None`.
+pub fn next_zoom(current: f64, action: &str, value: Option<f64>) -> Option<f64> {
+    let current = if current.is_finite() && current > 0.0 { current } else { 1.0 };
+    let first = ZOOM_LEVELS[0];
+    let last = ZOOM_LEVELS[ZOOM_LEVELS.len() - 1];
+    let next = match action {
+        "reset" => 1.0,
+        "in" => ZOOM_LEVELS.iter().copied().find(|l| *l > current + 0.01).unwrap_or(last),
+        "out" => ZOOM_LEVELS.iter().rev().copied().find(|l| *l < current - 0.01).unwrap_or(first),
+        "set" => {
+            let v = value.filter(|v| v.is_finite() && *v != 0.0).unwrap_or(1.0);
+            v.clamp(first, last)
+        }
+        _ => return None,
+    };
+    Some((next * 100.0).round() / 100.0)
+}
+
+/// Changes the zoom of the active tab.
+pub fn zoom(app: &AppHandle, action: &str, value: Option<f64>) -> Result<(), String> {
+    let target = with_browser(app, |b| {
+        let id = b.active_id.clone()?;
+        let tab = b.tabs.iter_mut().find(|t| t.id == id)?;
+        let next = next_zoom(tab.zoom, action, value)?;
+        tab.zoom = next;
+        Some((tab.label(), next))
+    });
+    let Some((label, factor)) = target else {
+        return Ok(());
+    };
+    if let Some(webview) = app.get_webview(&label) {
+        webview.set_zoom(factor).map_err(|e| e.to_string())?;
+    }
+    emit_state(app);
+    Ok(())
 }
 
 pub fn focus_omnibox(app: &AppHandle) {
@@ -506,6 +611,18 @@ pub fn on_window_event(app: &AppHandle, event: &WindowEvent) {
             if changed {
                 emit_chrome(app, "window:state", state);
             }
+            let fullscreen = app
+                .get_window(WINDOW_LABEL)
+                .and_then(|w| w.is_fullscreen().ok())
+                .unwrap_or(false);
+            let fullscreen_changed = with_browser(app, |b| {
+                let changed = b.fullscreen != fullscreen;
+                b.fullscreen = fullscreen;
+                changed
+            });
+            if fullscreen_changed {
+                emit_chrome(app, "window:fullscreen", json!({ "fullscreen": fullscreen }));
+            }
         }
         WindowEvent::Focused(focused) => emit_chrome(app, "window:focus", *focused),
         WindowEvent::CloseRequested { .. } => {
@@ -514,5 +631,25 @@ pub fn on_window_event(app: &AppHandle, event: &WindowEvent) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn zoom_steps_like_electron() {
+        assert_eq!(next_zoom(1.0, "in", None), Some(1.1));
+        assert_eq!(next_zoom(1.0, "out", None), Some(0.9));
+        assert_eq!(next_zoom(1.05, "in", None), Some(1.1));
+        assert_eq!(next_zoom(3.0, "in", None), Some(3.0));
+        assert_eq!(next_zoom(0.25, "out", None), Some(0.25));
+        assert_eq!(next_zoom(1.75, "reset", None), Some(1.0));
+        assert_eq!(next_zoom(1.0, "set", Some(9.0)), Some(3.0));
+        assert_eq!(next_zoom(1.0, "set", Some(1.234)), Some(1.23));
+        assert_eq!(next_zoom(1.0, "set", None), Some(1.0));
+        assert_eq!(next_zoom(f64::NAN, "in", None), Some(1.1));
+        assert_eq!(next_zoom(1.0, "bogus", None), None);
     }
 }

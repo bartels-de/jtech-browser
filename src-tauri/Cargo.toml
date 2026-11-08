@@ -12,8 +12,9 @@ tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
 # "unstable" enables multiwebview (Window::add_child, WebviewBuilder).
+# "devtools" keeps the DevTools hotkey working in release builds.
 # Pinned to 2.12.x so the webview2-com version below stays in sync with Tauri.
-tauri = { version = "~2.12", features = ["unstable"] }
+tauri = { version = "~2.12", features = ["unstable", "devtools"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 url = "2"

@@ -40,7 +40,14 @@
     'theme:update',
     'settings:update',
     'history:entry',
-    'ui:focus-omnibox'
+    'window:fullscreen',
+    'ui:focus-omnibox',
+    'ui:open-settings',
+    'ui:tab-search',
+    'ui:command-palette',
+    'ui:task-manager',
+    'ui:find-open',
+    'ui:toast'
   ];
   const subscribers = new Map(EVENTS.map((name) => [name, new Set()]));
   const lastPayload = new Map();
@@ -237,16 +244,17 @@
     onTheme: (callback) => subscribe('theme:update', callback),
     onSettings: (callback) => subscribe('settings:update', callback),
 
-    onFullscreen: unsubscribeNoop,
-    onOpenSettings: unsubscribeNoop,
-    onOpenTabSearch: unsubscribeNoop,
-    onOpenCommandPalette: unsubscribeNoop,
-    onOpenTaskManager: unsubscribeNoop,
+    onFullscreen: (callback) => subscribe('window:fullscreen', callback),
+    onOpenSettings: (callback) => subscribe('ui:open-settings', callback),
+    onOpenTabSearch: (callback) => subscribe('ui:tab-search', callback),
+    onOpenCommandPalette: (callback) => subscribe('ui:command-palette', callback),
+    onOpenTaskManager: (callback) => subscribe('ui:task-manager', callback),
+    onToast: (callback) => subscribe('ui:toast', callback),
+    onOpenFind: (callback) => subscribe('ui:find-open', callback),
     onHistoryEntry: (callback) => subscribe('history:entry', callback),
-    onToast: unsubscribeNoop,
+
     onUpdateStatus: unsubscribeNoop,
     onResourceEvent: unsubscribeNoop,
-    onOpenFind: unsubscribeNoop,
     onFindResult: unsubscribeNoop,
     onHistory: unsubscribeNoop,
     onDownloads: unsubscribeNoop,
