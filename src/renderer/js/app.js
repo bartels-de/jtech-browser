@@ -3373,15 +3373,13 @@ if (els.bookmarksImport) {
   });
 }
 els.extensionsLoad.addEventListener('click', async () => {
-  const before = extensions.length;
-  const previousIds = new Set(extensions.map((extension) => extension.id));
   try {
-    const next = await api.loadExtension();
-    renderExtensions(next);
-    if (next.length > before) {
-      reportInstalledExtension(previousIds, next, 'Erweiterung erfolgreich geladen.');
-    } else {
-      showExtensionStatus('Laden abgebrochen oder fehlgeschlagen (Manifest prüfen).', 'error');
+    const result = await api.loadExtension();
+    if (Array.isArray(result?.extensions)) renderExtensions(result.extensions);
+    if (result?.ok) {
+      reportInstalledExtension(result, 'Erweiterung erfolgreich geladen.');
+    } else if (!result?.canceled) {
+      showExtensionStatus('Laden fehlgeschlagen. Ist die Erweiterung schon geladen oder fehlt die manifest.json?', 'error');
     }
   } catch (error) {
     console.error('[extensions] Laden fehlgeschlagen:', error);
@@ -3428,15 +3426,16 @@ if (els.extensionStoreInstall) {
       showExtensionStatus('Bitte eine Web Store URL oder Erweiterungs-ID eingeben.', 'error');
       return;
     }
-    const before = extensions.length;
-    const previousIds = new Set(extensions.map((extension) => extension.id));
     els.extensionStoreInstall.disabled = true;
     showExtensionStatus('Installiere Erweiterung…', 'idle');
     try {
-      const next = await api.installExtensionFromStore(input);
-      renderExtensions(next);
-      if (next.length > before) {
-        reportInstalledExtension(previousIds, next, 'Erweiterung aus dem Web Store installiert.');
+      const result = await api.installExtensionFromStore(input);
+      if (Array.isArray(result?.extensions)) renderExtensions(result.extensions);
+      if (result?.ok) {
+        reportInstalledExtension(
+          result,
+          result.updated ? 'Erweiterung neu installiert und aktualisiert.' : 'Erweiterung aus dem Web Store installiert.'
+        );
         if (els.extensionStoreInput) els.extensionStoreInput.value = '';
       } else {
         showExtensionStatus('Installation fehlgeschlagen. ID oder URL prüfen.', 'error');
@@ -3451,8 +3450,8 @@ if (els.extensionStoreInstall) {
 }
 
 /** Status nach einer Installation, inkl. Warnung bei nicht unterstützten APIs. */
-function reportInstalledExtension(previousIds, next, successMessage) {
-  const added = next.find((extension) => !previousIds.has(extension.id));
+function reportInstalledExtension(result, successMessage) {
+  const added = (result.extensions || []).find((extension) => extension.id === result.id);
   const unsupported = Array.isArray(added?.unsupported) ? added.unsupported : [];
   if (unsupported.length) {
     showExtensionStatus(

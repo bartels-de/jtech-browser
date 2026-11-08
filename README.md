@@ -3,7 +3,7 @@
 A gaming-oriented desktop browser built on **Electron 45** (Chromium), focused on
 a fully customizable interface. The browser UI is in German.
 
-## Features (v0.7.0)
+## Features (v0.8.0)
 
 **Tabs & navigation**
 - Vertical tabs in the sidebar (resizable by dragging)
