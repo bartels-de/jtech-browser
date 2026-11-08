@@ -59,7 +59,7 @@ contextBridge.exposeInMainWorld('jtech', {
   loadExtension: () => ipcRenderer.invoke('extensions:load'),
   installExtensionFromStore: (input) => ipcRenderer.invoke('extensions:install-from-store', input),
   removeExtension: (id) => ipcRenderer.invoke('extensions:remove', id),
-  openExtensionPopup: (extensionId) => ipcRenderer.invoke('extensions:open-popup', { extensionId }),
+  openExtensionPopup: (extensionId, anchorRect) => ipcRenderer.invoke('extensions:open-popup', { extensionId, anchorRect }),
   listDownloads: () => ipcRenderer.invoke('downloads:list'),
   getMetrics: () => ipcRenderer.invoke('system:metrics'),
   addFavorite: (entry) => ipcRenderer.invoke('favorites:add', entry),

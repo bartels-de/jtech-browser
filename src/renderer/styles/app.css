@@ -2425,6 +2425,32 @@ body[data-tab-layout="vertical"] .tab.is-drop-after {
   font-weight: 700;
 }
 
+.extensions-menu__icon {
+  position: relative;
+}
+
+.extensions-menu__icon-img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.extensions-menu__badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
 .extensions-menu__name {
   flex: 1 1 auto;
   min-width: 0;

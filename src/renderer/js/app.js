@@ -1852,17 +1852,33 @@ function renderExtensionsMenu() {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'extensions-menu__item';
+    const fallback = escapeHtml(extension.name ? extension.name[0].toUpperCase() : 'E');
+    const icon = typeof extension.icon === 'string' && extension.icon.startsWith('data:image/')
+      ? `<img class="extensions-menu__icon-img" src="${extension.icon}" alt="" />`
+      : fallback;
+    const badge = extension.badge
+      ? `<span class="extensions-menu__badge"${/^#[0-9a-f]{3,8}$/i.test(extension.badgeColor || '') ? ` style="background:${extension.badgeColor}"` : ''}>${escapeHtml(extension.badge.slice(0, 4))}</span>`
+      : '';
+    row.title = extension.title || extension.name || extension.id;
     row.innerHTML = `
-      <span class="extensions-menu__icon" aria-hidden="true">${extension.name ? extension.name[0].toUpperCase() : 'E'}</span>
+      <span class="extensions-menu__icon" aria-hidden="true">${icon}${badge}</span>
       <span class="extensions-menu__name">${escapeHtml(extension.name || extension.id)}</span>
     `;
     row.addEventListener('click', async () => {
+      // Erst das Menü schließen: sonst holt sich die Webseite den Fokus zurück
+      // und das Popup schließt sich sofort wieder.
+      const anchor = (els.extensionsMenuToggle || row).getBoundingClientRect();
+      closeExtensionsMenu();
       try {
-        await api.openExtensionPopup(extension.id);
+        await api.openExtensionPopup(extension.id, {
+          x: anchor.left,
+          y: anchor.top,
+          width: anchor.width,
+          height: anchor.height
+        });
       } catch (error) {
         console.error('[extensions] Popup fehlgeschlagen:', error);
       }
-      closeExtensionsMenu();
     });
     els.extensionsMenuList.appendChild(row);
   }
@@ -1874,6 +1890,12 @@ function openExtensionsMenu() {
   els.extensionsMenuToggle?.setAttribute('aria-expanded', 'true');
   renderExtensionsMenu();
   updateOverlayState();
+  // Aktuelle Badges/Titel des aktiven Tabs nachladen.
+  api.listExtensions().then((list) => {
+    if (!Array.isArray(list) || els.extensionsMenuPanel.hidden) return;
+    extensions = list;
+    renderExtensionsMenu();
+  }).catch(() => {});
 }
 
 function closeExtensionsMenu() {
