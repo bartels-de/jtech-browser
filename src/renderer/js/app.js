@@ -131,7 +131,6 @@ const els = {
   username: document.getElementById('setting-username'),
   searchCustom: document.getElementById('setting-search-custom'),
   searchTemplate: document.getElementById('setting-search-template'),
-  tabLayoutButtons: [...document.querySelectorAll('.segmented__btn')],
   densityButtons: [...document.querySelectorAll('#setting-density .segmented__btn')],
   favoritesBarToggle: document.getElementById('setting-favorites-bar'),
   gamingModeToggle: document.getElementById('setting-gaming-mode'),
@@ -2280,12 +2279,6 @@ function syncSettingsForm({ preserveFocus = false } = {}) {
     els.searchTemplate.removeAttribute('aria-invalid');
   }
 
-  for (const button of els.tabLayoutButtons) {
-    const selected = button.dataset.layout === appSettings.ui.tabLayout;
-    button.classList.toggle('is-active', selected);
-    button.setAttribute('aria-pressed', String(selected));
-  }
-
   for (const button of els.densityButtons) {
     const selected = button.dataset.density === appSettings.ui.density;
     button.classList.toggle('is-active', selected);
@@ -3433,12 +3426,6 @@ els.searchTemplate.addEventListener('input', () => {
   els.searchTemplate.removeAttribute('aria-invalid');
   saveSettingsPatch({ search: { engine: 'custom', urlTemplate: template } });
 });
-
-for (const button of els.tabLayoutButtons) {
-  button.addEventListener('click', () => {
-    saveSettingsPatch({ ui: { tabLayout: button.dataset.layout } });
-  });
-}
 
 if (els.username) {
   els.username.addEventListener('input', () => {

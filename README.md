@@ -3,192 +3,162 @@
 Ein gaming-orientierter Desktop-Browser auf Basis von **Electron 45** (Chromium),
 mit Fokus auf ein vollständig anpassbares Interface.
 
-## Aktueller Stand
+## Funktionen (v0.7.0)
 
-- Mehrere Tabs mit Favicon, Titel, Ladeindikator und Schließen-Button
-- Adress- und Suchleiste (URL-Erkennung, **Google** als Standard-Suche)
-- Navigation: Zurück, Vorwärts, Neu laden, Stoppen
+**Tabs & Navigation**
+- Vertikale Tabs in der Seitenleiste (Breite per Ziehen anpassbar)
+- Tab-Gruppen mit Farben, Anheften, Stummschalten, Duplizieren, Tab-Kontextmenü
+- Split-View (zwei Tabs nebeneinander, Verhältnis einstellbar)
+- Tab-Suche (`Ctrl+Shift+A`) und Command-Palette (`Ctrl+K`)
+- Session-Restore beim Start, zuletzt geschlossene Tabs wieder öffnen
+- Adress- und Suchleiste mit Vorschlägen aus offenen Tabs, Lesezeichen und Verlauf
+- **JTech Bangs**: `!yt`, `!yt-d`, `!g`, `!ddg`, `!gh` sowie eigene Bangs – in Adressleiste und Startseite
+- Zoom pro Website (wird gespeichert), Suchen auf der Seite, Drucken, Vollbild
 - Fehlerseite im Browser-Look statt Chromium-Fehlercode
-- Frameless Glas-UI mit eigener Titlebar, Fenstersteuerung und animiertem Hintergrund
-- Startseite (`jtech://newtab`) mit Uhr, Suche und Shortcut-Hinweisen
-- **Einstellungs-Menü** (`Ctrl+,`): Suchmaschine, Tab-Layout, Favoriten, Über
-- **Horizontale oder vertikale Tabs** (Seitenleiste links, live umschaltbar)
-- **Favoritenleiste** mit Stern-Button, Verwaltung und automatischem Speichern
-- **Design-Studio**: Theme-Editor mit Reitern, Live-Vorschau, 12 Presets, Hintergrund-Animationen, Style-Aspekten (Clean, Animated, Gaming, Minimal), Glow-Steuerung und automatischem Speichern
-- Konfigurierbare Hotkeys über `settings.json`
-- Neue Tabs bei `target="_blank"` / `window.open`
+
+**Medien & Gaming**
+- Media-Hub: alle laufenden Videos/Audios mit Play/Pause, Spulen, Stummschalten
+- Lautstärke pro Tab, Verstärkung bis 300 % (Web Audio)
+- Bild-im-Bild (`Ctrl+Shift+P`)
+- Gaming-Modus: Hintergrund-Tabs werden schlafen gelegt
+- Ressourcen-HUD mit RAM/CPU pro Tab
+
+**Daten & Privatsphäre**
+- Favoritenleiste, Lesezeichen mit Ordnern und Tags, Verlauf, Downloads
+- Werbe- und Tracker-Blocker (Ghostery)
+- Chrome-Erweiterungen: aus dem Chrome Web Store (URL oder ID) oder als `.crx`/`.zip`/Ordner
+
+**Design-Studio**
+- Theme-Editor mit Live-Vorschau, 12 Presets, eigenen gespeicherten Themes, Import/Export, „Zufällig“
+- Hintergrund-Animationen, Glas-Effekt, Glow, Rahmenstil, Schrift, Cursor-Effekte, eigenes CSS
+
+Frameless Glas-UI mit eigener Titlebar und Fenstersteuerung. Startseite: `jtech://newtab`.
 
 ## Starten
 
 ```powershell
 npm install
-npm start
-```
-
-Mit geöffneten Chrome-DevTools (UI-Debugging):
-
-```powershell
-npm run dev
-```
-
-Tests ausführen:
-
-```powershell
-npm test
+npm start          # Browser starten
+npm run dev        # mit DevTools für das Browser-UI
+npm test           # Tests
+npm run build      # Windows-Installer (NSIS, x64) nach dist/
 ```
 
 ## Design-Studio
 
-Über den Regler-Button rechts in der Toolbar (neben den DevTools) öffnet sich das
-Design-Studio. Während es offen ist, wird die aktive Webseite ausgeblendet, damit
-das Studio den gesamten Bereich unter der Chrome-Leiste nutzen kann.
-
-Der Editor ist in Reiter organisiert:
+Über den Regler-Button in der Toolbar öffnet sich das Design-Studio. Während es
+offen ist, wird die aktive Webseite ausgeblendet. **Esc** oder ein Klick außerhalb
+schließt es.
 
 | Reiter | Inhalt |
 | --- | --- |
 | **Farben** | Akzentfarben, Hintergrund, Textfarben |
 | **Oberfläche** | Glas-Deckkraft, Blur, Radius, Rahmen, Schatten, Sättigung, Rahmenstil |
-| **Hintergrund** | Wallpaper-URL oder Animation (Orbs, Partikel, Wellen, Mesh, Rauschen) mit Geschwindigkeit und Intensität |
-| **Stil** | Browser-Stil (Standard, Aufgeräumt, Animation, Gaming, Minimal), Glow-Stärke, Übergangsgeschwindigkeit, Schriftart und -größe |
-| **Erweitert** | Eigenes CSS für Chrome-UI und Startseite |
+| **Hintergrund** | Wallpaper-URL oder Animation (Orbs, Partikel, Wellen, Mesh, Rauschen, Aurora, Grid, Sterne, Matrix, Pulse, Nebel) mit Geschwindigkeit und Intensität |
+| **Stil** | Browser-Stil (Standard, Aufgeräumt, Animation, Gaming, Minimal), Glow, Übergangsgeschwindigkeit, Schriftart und -größe |
+| **Effekte** | Cursor-Effekte (Spur, Funken, Komet, Welle, Laser, Blasen), Farbe, Größe, Intensität, eigenes Cursor-Bild |
+| **Erweitert** | Eigenes CSS für Browser-UI und Startseite |
 
-Anpassbar sind unter anderem:
-
-| Bereich | Werte |
-| --- | --- |
-| Akzentfarben | Hex-Farbe (Color-Picker oder Textfeld) |
-| Hintergrund | Hex-Farbe + optionale Animation |
-| Glas-Deckkraft | 20 – 95 % |
-| Weichzeichnen | 0 – 60 px |
-| Eckenradius | 0 – 28 px |
-| Glow-Stärke | 0 – 100 % |
-| Übergangs-/Animationsgeschwindigkeit | 0 – 200 % |
-
-Änderungen werden sofort auf Chrome-UI und Startseite angewendet und nach 250 ms
-automatisch gespeichert. 12 Presets (z. B. Obsidian, Ember, Arctic, Cyber,
-Minimal) setzen alle Werte auf einmal. „Zufällig“ erzeugt ein zufälliges
-Farb-/Style-Setup. Themes lassen sich importieren und exportieren.
-„Auf Standard zurücksetzen“ stellt das Obsidian-Theme wieder her. **Esc** oder
-ein Klick außerhalb schließt das Studio.
+Änderungen werden sofort angewendet und nach 250 ms automatisch gespeichert.
+„Auf Standard zurücksetzen“ stellt das Obsidian-Theme wieder her.
 
 ## Standard-Hotkeys
 
-| Aktion              | Tasten                    |
-| ------------------- | ------------------------- |
-| Neuer Tab           | `Ctrl+T`                  |
-| Tab schließen       | `Ctrl+W`                  |
-| Tab wieder öffnen   | `Ctrl+Shift+T`            |
-| Adressleiste        | `Ctrl+L`, `Alt+D`         |
-| Neu laden           | `Ctrl+R`, `F5`            |
-| Hart neu laden      | `Ctrl+Shift+R`, `Ctrl+F5` |
-| Zurück / Vorwärts   | `Alt+←` / `Alt+→`         |
-| Nächster / letzter  | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
-| Einstellungen       | `Ctrl+,`                  |
-| DevTools            | `F12`, `Ctrl+Shift+I`     |
+| Aktion | Tasten |
+| --- | --- |
+| Neuer Tab | `Ctrl+T` |
+| Tab schließen | `Ctrl+W` |
+| Tab wieder öffnen | `Ctrl+Shift+T` |
+| Adressleiste | `Ctrl+L`, `Alt+D` |
+| Neu laden / hart neu laden | `Ctrl+R`, `F5` / `Ctrl+Shift+R`, `Ctrl+F5` |
+| Zurück / Vorwärts | `Alt+←` / `Alt+→` |
+| Nächster / vorheriger Tab | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
+| Einstellungen | `Ctrl+,` |
+| Command-Palette | `Ctrl+K` |
+| Tab-Suche | `Ctrl+Shift+A` |
+| Auf Seite suchen | `Ctrl+F` |
+| Split-View | `Ctrl+\` |
+| Bild-im-Bild | `Ctrl+Shift+P` |
+| Vollbild | `F11` |
+| Drucken | `Ctrl+P` |
+| Zoom + / − / zurücksetzen | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` |
+| DevTools | `F12`, `Ctrl+Shift+I` |
+
+Hotkeys lassen sich in der `settings.json` als Arrays von Accelerators wie
+`"Ctrl+Shift+T"` ändern.
 
 ## Einstellungen
 
-Das Einstellungs-Menü öffnet sich über das Zahnrad in der Toolbar, die
-Seitenleiste oder `Ctrl+,`. Änderungen werden automatisch nach 250 ms gespeichert
-und sofort angewendet. Wie das Design-Studio liegt es als Overlay unter der
-Chrome-Leiste; die aktive Webseite wird währenddessen ausgeblendet.
+Öffnen über das Zahnrad, die Seitenleiste oder `Ctrl+,`. Änderungen werden nach
+250 ms automatisch gespeichert.
 
 | Bereich | Optionen |
 | --- | --- |
-| Allgemein | Google, DuckDuckGo, Bing, Ecosia, Startpage, Brave oder benutzerdefinierte Such-URL |
-| Darstellung | Horizontale Tab-Leiste oder vertikale Tab-Seitenleiste, Favoritenleiste ein/aus |
-| Favoriten | Aktuelle Seite hinzufügen, Einträge öffnen und entfernen |
+| Allgemein | Name für die Begrüßung, Suchmaschine (Google, DuckDuckGo, Bing, Ecosia, Startpage, Brave oder eigene Such-URL) |
+| Darstellung | UI-Dichte, Favoritenleiste, Gaming-Modus, Sitzung wiederherstellen |
+| Favoriten / Shortcuts | Einträge hinzufügen, öffnen, entfernen |
+| JTech Bangs | Eigene Bang-Befehle anlegen |
+| Lesezeichen / Verlauf / Downloads | Verwalten, durchsuchen, löschen |
+| Datenschutz | Werbeblocker, Tracking-Schutz |
+| Erweiterungen | Aus dem Web Store installieren, aus Datei laden, entfernen |
+| Hotkeys | Übersicht der Tastenkürzel |
 | Über | Version und Speicherort der Einstellungen |
 
-Benutzerdefinierte Such-URLs müssen mit `http(s)://` beginnen und `%s` als
-Platzhalter für die Suchanfrage enthalten. Favoriten akzeptieren nur
-`http(s)`-URLs, werden dedupliziert und sind auf 100 Einträge begrenzt.
+Eigene Such-URLs müssen mit `http(s)://` beginnen und `%s` als Platzhalter
+enthalten.
 
-Beim ersten Start wird eine `settings.json` im Benutzerdaten-Ordner angelegt:
+Die Einstellungen liegen in:
 
 ```
 %APPDATA%\JTech Browser\settings.json
 ```
 
-Existiert noch eine alte `%APPDATA%\Pulse\settings.json`, wird sie beim ersten
-Start automatisch als Basis übernommen. Ältere Dateien ohne `search.engine`
-werden auf Google migriert.
-
-```json
-{
-  "search": {
-    "engine": "google",
-    "urlTemplate": "https://www.google.com/search?q=%s"
-  },
-  "ui": {
-    "tabLayout": "horizontal",
-    "favoritesBar": true
-  },
-  "favorites": [],
-  "theme": {
-    "accent": "#22d3ee",
-    "accentAlt": "#a855f7",
-    "bg": "#05060a",
-    "glass": 0.58,
-    "blur": 22,
-    "radius": 13
-  },
-  "hotkeys": {
-    "newTab": ["Ctrl+T", "Ctrl+Shift+N"]
-  }
-}
-```
-
-Alle Werte werden im Main-Prozess validiert (`normalizeSearch`, `normalizeUi`,
-`normalizeFavorites`, `normalizeTheme`), bevor sie gespeichert oder angewendet
-werden. Hotkeys sind Arrays von Accelerators wie `"Ctrl+Shift+T"`.
+Dort liegen auch `session.json`, `crash.log`, der Adblock-Cache und installierte
+Erweiterungen (`extensions\`). Eine alte `%APPDATA%\Pulse\settings.json` wird beim
+ersten Start übernommen. Alle Werte werden im Main-Prozess validiert, bevor sie
+gespeichert werden; die Datei wird atomar geschrieben, eine beschädigte Datei wird
+als Backup gesichert.
 
 ## Projektstruktur
 
 ```
 src/
 ├─ main/
-│  ├─ main.js       Fenster, IPC, Protokoll (jtech://), Shortcut-Routing
-│  ├─ tabs.js       TabManager: eine WebContentsView pro Tab, Theme-/Such-Injektion
-│  ├─ config.js     settings.json laden/speichern, Suche, Layout, Favoriten
+│  ├─ main.js       Fenster, IPC, jtech://-Protokoll, Hotkeys, Erweiterungen, Downloads, Adblock
+│  ├─ tabs.js       TabManager: eine WebContentsView pro Tab, Split-View, Medien, Injektion
+│  ├─ config.js     settings.json laden/speichern und validieren
 │  └─ shortcuts.js  Accelerator-Parser und Matching
 ├─ preload/
 │  └─ preload.js    schmale contextBridge-API (window.jtech)
+├─ shared/
+│  └─ cursor-fx.js  Cursor-Effekte (UI, Startseite und Webseiten)
 └─ renderer/
-   ├─ index.html    Browser-Chrome (Titlebar, Tabs, Toolbar) + Overlays
+   ├─ index.html    Browser-UI + Overlays (Studio, Einstellungen, Media-Hub, HUD, Palette)
    ├─ newtab.html   Startseite (jtech://newtab)
-   ├─ styles/       theme.css (Design-Tokens) + app.css
-   └─ js/app.js     Tabs, Omnibox, Layout, Favoriten, Settings, Design-Studio
-tests/
-├─ shortcuts.test.js  Hotkey-Engine
-├─ settings.test.js   Suche, Layout und Favoriten
-└─ theme.test.js      Theme-Validierung
+   ├─ changelog.html Wird nach einem Update einmal angezeigt
+   ├─ styles/       theme.css (Design-Tokens), app.css, obsidian.css, polish.css
+   └─ js/app.js     Logik des Browser-UI
+tests/              Hotkeys, Einstellungen, Theme-Validierung (node:test)
 ```
 
 ## Architektur-Entscheidungen
 
-- **WebContentsView statt `<webview>`**: moderne, empfohlene Variante.
-  Jeder Tab ist ein eigener Renderer-Prozess, das Chrome-UI läuft getrennt davon.
-- **Frameless Window**: eigene Titlebar, dafür volle Kontrolle über Optik.
-  Chrome-Höhe und Sidebar-Breite werden per `ResizeObserver` (plus expliziten
-  Updates bei Layout-Wechseln) an den Main-Prozess gemeldet, damit die
-  Content-Views pixelgenau daneben/darunter sitzen.
-- **Overlay statt eigenem Fenster**: Design-Studio und Einstellungen liegen im
-  Chrome-Renderer. Die aktive `WebContentsView` wird über `ui:overlay` temporär
-  entfernt, damit das Overlay sichtbar ist – ohne zusätzliches Fenster.
-- **Sicherheit**: `contextIsolation` + `sandbox` aktiv, kein Node im Renderer,
-  nur eine minimale IPC-API. Im Omnibox werden nur `http(s)`-URLs zugelassen.
-- **Theming & Suche**: alle Farben, Radien und Blur-Werte liegen als CSS-Variablen
-  vor. Studio und Einstellungen schreiben live und persistieren über IPC.
-  Startseiten erhalten Theme und Such-URL per `executeJavaScript` injiziert.
+- **WebContentsView statt `<webview>`**: jeder Tab ist ein eigener Renderer-Prozess,
+  das Browser-UI läuft getrennt davon.
+- **Frameless Window** mit eigener Titlebar. Höhe und Seitenleistenbreite werden an
+  den Main-Prozess gemeldet, damit die Webseiten pixelgenau daneben sitzen.
+- **Overlays statt eigener Fenster**: Studio und Einstellungen liegen im UI-Renderer,
+  die aktive Webseite wird solange ausgeblendet.
+- **Sicherheit**: `contextIsolation` + `sandbox` aktiv, kein Node im Renderer, nur
+  eine minimale IPC-API. In der Adressleiste sind nur `http(s)`-URLs erlaubt.
+- **Theming**: alle Werte sind CSS-Variablen; die Startseite bekommt Theme, Suche und
+  Shortcuts per `executeJavaScript` injiziert.
 
-## Nächste Schritte (Roadmap)
+## Roadmap
 
-1. **Hotkey-Editor**: Rebinding inkl. Konflikt-Erkennung und Aufzeichnung
-2. **Eigene Presets**: Design-Studio-Setups benennen und speichern
-3. **Gaming-Features**: RAM/CPU-Anzeige, Resource-Limiter, Force-Dark-Mode
-4. **Verlauf & Lesezeichen-Suche** mit Filterung
-5. **Sidebar** mit Schnellzugriff-Kacheln / Discord / Twitch
-6. **Tab-Drag & Drop**, Tab-Kontextmenü, Session-Restore
-7. **Auto-Updater & Installer** (electron-builder)
+1. **Hotkey-Editor**: Tasten in den Einstellungen neu belegen, mit Konflikt-Erkennung
+2. **Erweiterungen**: `electron-chrome-extensions` einbinden (Popups, Toolbar-Icons, chrome.*-APIs)
+3. **Verlauf** in eigene Datei auslagern und gebündelt speichern
+4. **Auto-Update** (electron-updater ist eingebaut, braucht noch einen Update-Server)
+5. **Sidebar** mit Schnellzugriff (Discord, Twitch, …)
+6. Force-Dark-Mode, Resource-Limiter

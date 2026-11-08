@@ -31,7 +31,8 @@ class TabManager {
     this.onInput = onInput;
     this.getTheme = typeof getTheme === 'function' ? getTheme : () => null;
     this.getSearch = typeof getSearch === 'function' ? getSearch : () => null;
-    this.getBangs = typeof getBangs === 'function' ? getBangs : () => [];    this.getUserName = typeof getUserName === 'function' ? getUserName : () => '';
+    this.getBangs = typeof getBangs === 'function' ? getBangs : () => [];
+    this.getUserName = typeof getUserName === 'function' ? getUserName : () => '';
     this.getShortcuts = typeof getShortcuts === 'function' ? getShortcuts : () => [];
     this.onFindResult = typeof onFindResult === 'function' ? onFindResult : () => {};
     this.onNavigate = typeof onNavigate === 'function' ? onNavigate : () => {};
